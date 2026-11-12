@@ -1,0 +1,1426 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relatório de Produção</title>
+  <style>
+    :root {
+      --bg: #dfe3e8;
+      --surface: #ffffff;
+      --card: #f8fafc;
+      --border: #d8dee8;
+      --text: #1f2937;
+      --muted: #64748b;
+      --orcamento: #a8d98b;
+      --aprovada: #f5c842;
+      --garantia: #f07575;
+      --remoto: #6db3f2;
+      --accent: #6db3f2;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 20px 0;
+    }
+
+    .report-page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      background: #fff;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, .18);
+      overflow: hidden;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16mm 16mm 8mm;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .header-left h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .header-left p {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    select,
+    input[type="month"] {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    select:focus,
+    input[type="month"]:focus { outline: 2px solid var(--accent); }
+
+    .filter-field {
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .btn.secondary {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+
+    .btn:hover { opacity: .85; }
+
+    .nav-links {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .nav-links a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 7px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      background: var(--card);
+    }
+
+    .nav-links a:hover {
+      background: #eef5ff;
+    }
+
+    .main {
+      padding: 8mm 16mm 16mm;
+      width: 100%;
+    }
+
+    /* Resumo em lista */
+    .summary-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 22px;
+      margin-bottom: 20px;
+      break-inside: avoid;
+    }
+    .summary-card h2 { font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 10px; }
+    .summary-list { margin: 0; }
+    .summary-item { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 16px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .summary-item:last-child { border-bottom: 0; padding-bottom: 0; }
+    .summary-item dt { font-size: 14px; font-weight: 600; line-height: 1.4; }
+    .summary-item dd { margin: 0; min-width: 0; text-align: right; }
+    .summary-value { display: block; font-size: 18px; font-weight: 700; line-height: 1.3; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .summary-detail { display: block; margin-top: 3px; font-size: 12px; line-height: 1.4; color: var(--muted); }
+    .summary-value.money { color: #155348; }
+
+    @media (max-width: 800px) {
+      body { padding: 0; }
+      .report-page {
+        width: 100%;
+        min-height: 100vh;
+        box-shadow: none;
+      }
+      .main { padding: 16px; }
+      header { padding: 16px; }
+    }
+
+    /* Table */
+    .table-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 22px;
+      margin-bottom: 20px;
+    }
+
+    .table-card h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      margin-bottom: 16px;
+    }
+
+    .tbl-wrap { overflow-x: auto; }
+
+    .models-table th:last-child,
+    .models-table td:last-child {
+      text-align: right;
+      width: 120px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      text-align: left;
+      padding: 8px 12px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .7px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody td {
+      padding: 9px 12px;
+      border-bottom: 1px solid #edf1f6;
+    }
+
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover td { background: #f8fafc; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .badge.orcamento { background: rgba(168,217,139,.2); color: var(--orcamento); }
+    .badge.aprovada  { background: rgba(245,200,66,.2);  color: var(--aprovada); }
+    .badge.garantia  { background: rgba(240,117,117,.2); color: var(--garantia); }
+    .badge.remoto    { background: rgba(109,179,242,.2); color: var(--remoto); }
+
+    /* Empty state */
+    #emptyState {
+      display: none;
+      text-align: center;
+      padding: 60px 20px;
+    }
+
+    #emptyState h2 { font-size: 20px; margin-bottom: 10px; }
+    #emptyState p  { color: var(--muted); font-size: 14px; max-width: 360px; margin: 0 auto; line-height: 1.6; }
+
+    #appContent { display: none; }
+
+    #printReport { display: none; font-family: 'Segoe UI', Arial, sans-serif; color: #1f2937; }
+    #printReport.is-measuring { display: block; position: absolute; left: 0; top: 0; visibility: hidden; pointer-events: none; z-index: -1; }
+    .report-print-sheet { position: relative; width: 186mm; height: 265mm; overflow: hidden; background: #fff; break-after: page; page-break-after: always; }
+    .report-print-sheet:last-child { break-after: auto; page-break-after: auto; }
+    .report-print-content { position: absolute; top: 0; left: 0; width: 186mm; transform-origin: top left; }
+    .report-print-heading { margin-bottom: 5mm; padding-bottom: 3mm; border-bottom: 1px solid #d8dee8; }
+    #printReport h1 { margin: 0 0 2mm; font-size: 16pt; line-height: 1.2; }
+    .report-print-heading p { margin: 0; font-size: 9pt; line-height: 1.4; color: #64748b; overflow-wrap: anywhere; }
+    #printReport .summary-card, #printReport .table-card { margin: 0 0 4mm; padding: 3mm; border: 1px solid #d8dee8; border-radius: 2mm; break-inside: avoid; }
+    #printReport .summary-card h2, #printReport .table-card h2 { margin: 0 0 3mm; font-size: 10pt; line-height: 1.2; }
+    #printReport .summary-item { padding: 2mm 0; gap: 4mm; }
+    #printReport .summary-item dt { font-size: 10pt; }
+    #printReport .summary-value { font-size: 12pt; }
+    #printReport .summary-detail { margin-top: 1mm; font-size: 8.5pt; }
+    #printReport .tbl-wrap { overflow: visible; }
+    #printReport table { width: 100%; table-layout: fixed; font-size: 8.5pt; }
+    #printReport thead { display: table-header-group; }
+    #printReport tr { break-inside: avoid; page-break-inside: avoid; }
+    #printReport th, #printReport td { padding: 1.6mm 1mm; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; }
+    #printReport th { font-size: 7.5pt; letter-spacing: 0; }
+    #printReport td span { font-size: inherit !important; }
+    #printReport .models-table { font-size: 10pt; }
+    #printReport .models-table th:last-child, #printReport .models-table td:last-child { width: 28mm; }
+    #printReport .report-print-content.is-dense th, #printReport .report-print-content.is-dense td { padding-top: .6mm; padding-bottom: .6mm; line-height: 1.05; }
+    .report-print-footer { position: absolute; bottom: 0; left: 0; width: 100%; height: 6mm; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #d8dee8; font-size: 8pt; color: #64748b; }
+
+    @media print {
+      @page { size: A4 portrait; margin: 15mm 12mm; }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      html, body { margin: 0 !important; padding: 0 !important; width: auto; min-height: 0; background: #fff; }
+      body > :not(#printReport) { display: none !important; }
+      #printReport { display: block; position: static; visibility: visible; }
+    }
+
+  </style>
+</head>
+<body>
+
+<div class="report-page">
+<header>
+  <div class="header-left">
+    <h1>📊 Relatório de Produção</h1>
+    <p id="headerSub">Carregando dados...</p>
+  </div>
+  <div class="controls">
+    <nav class="nav-links" aria-label="Navegação">
+      <a href="index.html">Início</a>
+      <a href="controle-producao.html">Cadastro</a>
+    </nav>
+    <select id="yearFilter"><option value="all">Todos os anos</option></select>
+    <select id="monthFilter"><option value="all">Todos os meses</option></select>
+    <label class="filter-field" for="reportMonthSearch">
+      <span>Pesquisar relatorio por mes</span>
+      <input id="reportMonthSearch" type="month">
+    </label>
+    <button class="btn" type="button" id="reportMonthButton">Pesquisar</button>
+    <button class="btn" type="button" id="showTableButton">Mostrar tabela</button>
+    <button class="btn secondary" type="button" id="clearMonthSearch">Todos</button>
+    <button class="btn" type="button" id="printReportButton" disabled>Imprimir</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Empty state -->
+  <div id="emptyState">
+    <h2>Nenhum dado encontrado</h2>
+    <p>Abra este relatório no mesmo navegador onde o <strong>Controle de Produção</strong> está em uso. Os dados são lidos do armazenamento local.</p>
+  </div>
+
+  <!-- App content -->
+  <div id="appContent">
+
+    <section class="summary-card" aria-labelledby="summaryHeading">
+      <h2 id="summaryHeading">Resumo da produção</h2>
+      <dl class="summary-list">
+        <div class="summary-item"><dt>Total de O.S</dt><dd><strong class="summary-value" id="kpiTotal">—</strong><span class="summary-detail" id="kpiPeriodo">—</span></dd></div>
+        <div class="summary-item"><dt>Isentos de taxa</dt><dd><strong class="summary-value" id="kpiIsentos">—</strong><span class="summary-detail" id="kpiIsentosSub">—</span></dd></div>
+        <div class="summary-item"><dt>Orçamento</dt><dd><strong class="summary-value" id="kpiOrcamento">—</strong><span class="summary-detail" id="kpiOrcPct">—</span></dd></div>
+        <div class="summary-item"><dt>Aprovada</dt><dd><strong class="summary-value" id="kpiAprovada">—</strong><span class="summary-detail" id="kpiAprPct">—</span></dd></div>
+        <div class="summary-item"><dt>Garantia</dt><dd><strong class="summary-value" id="kpiGarantia">—</strong><span class="summary-detail" id="kpiGarPct">—</span></dd></div>
+        <div class="summary-item"><dt>Acesso remoto</dt><dd><strong class="summary-value" id="kpiRemoto">—</strong><span class="summary-detail" id="kpiRemPct">—</span></dd></div>
+        <div class="summary-item"><dt>Valor total</dt><dd><strong class="summary-value money" id="kpiValorTotal">—</strong><span class="summary-detail" id="kpiValorSub">—</span></dd></div>
+      </dl>
+    </section>
+
+    <section class="table-card" aria-labelledby="modelsHeading">
+      <h2 id="modelsHeading">Modelos mais frequentes</h2>
+      <table class="models-table" aria-labelledby="modelsHeading">
+        <thead><tr><th scope="col">Modelo</th><th scope="col">Quantidade</th></tr></thead>
+        <tbody id="modelsBody"></tbody>
+      </table>
+    </section>
+
+    <!-- Table -->
+    <div class="table-card">
+      <h2>Resumo por mês</h2>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Mês / Ano</th>
+              <th>Total</th>
+              <th>Orçamento</th>
+              <th>Aprovada</th>
+              <th>Garantia</th>
+              <th>Acesso Remoto</th>
+              <th>Valor Total</th>
+              <th>Isentos</th>
+              <th>Mais frequente</th>
+            </tr>
+          </thead>
+          <tbody id="summaryBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <h2>Comparativo entre meses</h2>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Mês / Ano</th>
+              <th>Total</th>
+              <th>Orçamento</th>
+              <th>Aprovada</th>
+              <th>Garantia</th>
+              <th>Acesso Remoto</th>
+              <th>Variação</th>
+              <th>Variação %</th>
+            </tr>
+          </thead>
+          <tbody id="comparativoBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /appContent -->
+</div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'controle-producao-registros';
+  const DATA_API = '/api/data';
+  const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+  let allRecords = [];
+  let monthlyReports = [];
+  let tecnicoName = '';
+
+  // ── Load ─────────────────────────────────────────────────────────────
+  function loadFromStorage() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const parsed = JSON.parse(raw || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  }
+
+  async function loadFromFile() {
+    try {
+      const response = await fetch(DATA_API, { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+      if (response.status === 401) location.replace('/');
+      if (!response.ok) return null;
+      const data = await response.json();
+      return {
+        records: Array.isArray(data.records) ? data.records : [],
+        archivedRecords: Array.isArray(data.archivedRecords) ? data.archivedRecords : [],
+        monthlyReports: Array.isArray(data.monthlyReports) ? data.monthlyReports : [],
+        tecnico: typeof data.tecnico === 'string' ? data.tecnico : ''
+      };
+    } catch { return null; }
+  }
+
+  async function loadData() {
+    const fromFile = await loadFromFile();
+    if (fromFile) {
+      return fromFile;
+    }
+
+    if (location.port !== '3847') return null;
+    const records = loadFromStorage();
+    return {
+      records,
+      archivedRecords: [],
+      monthlyReports: [],
+      tecnico: localStorage.getItem('controle-producao-tecnico') || ''
+    };
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────
+  function getYearMonth(record) {
+    if (!record.data) return null;
+    const [y, m] = record.data.split('-');
+    return { year: parseInt(y), month: parseInt(m) - 1 };
+  }
+
+  function recordKey(record) {
+    return [
+      record?.os || '',
+      record?.status || 'orcamento'
+    ].map(value => String(value).trim().toUpperCase()).join('|');
+  }
+
+  function mergeDetailedRecords(archivedRecords, activeRecords) {
+    const map = {};
+    [...archivedRecords, ...activeRecords].forEach(record => {
+      if (!record || !record.data || !record.os) return;
+      const key = recordKey(record);
+      const existing = map[key];
+      if (!existing || String(record.data || '') >= String(existing.data || '')) {
+        map[key] = record;
+      }
+    });
+    return Object.values(map).sort((a, b) => String(a.data || '').localeCompare(String(b.data || '')));
+  }
+
+  function pct(n, total) {
+    if (!total) return '0%';
+    return Math.round(n / total * 100) + '%';
+  }
+
+  function topModel(records) {
+    const freq = {};
+    records.forEach(r => { if (r.modelo) freq[r.modelo] = (freq[r.modelo] || 0) + 1; });
+    const sorted = Object.entries(freq).sort((a,b) => b[1]-a[1]);
+    return sorted.length ? sorted[0][0] : '—';
+  }
+
+  // ── Filter by year / month ─────────────────────────────────────────────
+  function getFiltered(year, month) {
+    if ((year === undefined || year === 'all') && (month === undefined || month === 'all')) {
+      return allRecords;
+    }
+    return allRecords.filter(r => {
+      const ym = getYearMonth(r);
+      if (!ym) return false;
+      if (year !== undefined && year !== 'all' && ym.year !== parseInt(year)) return false;
+      if (month !== undefined && month !== 'all' && ym.month !== parseInt(month)) return false;
+      return true;
+    });
+  }
+
+  // ── Build monthly buckets ──────────────────────────────────────────────
+  function reportMatchesFilter(report, yearFilter, monthFilter) {
+    if (!report || !report.key) return false;
+    const [yearText, monthText] = report.key.split('-');
+    const year = Number(report.year || yearText);
+    const month = Number(report.month || monthText) - 1;
+    if (yearFilter !== undefined && yearFilter !== 'all' && year !== parseInt(yearFilter)) return false;
+    if (monthFilter !== undefined && monthFilter !== 'all' && month !== parseInt(monthFilter)) return false;
+    return true;
+  }
+
+  const TAXA_VALUE = 100;
+
+  function formatCurrency(value) {
+    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  const STATUS_LABELS = {
+    orcamento: 'Orcamento',
+    aprovada: 'Aprovada',
+    garantia: 'Garantia',
+    remoto: 'Acesso remoto'
+  };
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function formatDate(value) {
+    if (!value) return '';
+    const [year, month, day] = String(value).split('-');
+    return day && month && year ? `${day}/${month}/${year}` : value;
+  }
+
+  function getElapsedDays(startDate, endDate) {
+    if (!startDate || !endDate) return null;
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+    return Math.round((end - start) / 86400000);
+  }
+
+  function formatElapsedDays(startDate, endDate) {
+    const days = getElapsedDays(startDate, endDate);
+    if (days === null) return '';
+    return `${days} dia${Math.abs(days) === 1 ? '' : 's'}`;
+  }
+
+  function isElapsedOver24Hours(startDate, endDate) {
+    const days = getElapsedDays(startDate, endDate);
+    return days !== null && days > 1;
+  }
+
+  function isBudgetStatus(status) {
+    return String(status || 'orcamento') === 'orcamento';
+  }
+
+  function getPeriodLabel(yearFilter, monthFilter) {
+    if (yearFilter !== 'all' && monthFilter !== 'all') {
+      return `${MESES_FULL[Number(monthFilter)]} / ${yearFilter}`;
+    }
+    if (yearFilter !== 'all') return String(yearFilter);
+    return 'todos os meses';
+  }
+
+  function openRecordsTable(records, periodLabel) {
+    if (!records.length) {
+      alert(`Nenhuma O.S encontrada para ${periodLabel}.`);
+      return;
+    }
+
+    const tableWindow = window.open('', '_blank');
+    if (!tableWindow) {
+      alert('Nao foi possivel abrir a tabela. Verifique se o navegador bloqueou a nova pagina.');
+      return;
+    }
+
+    const MAX_ROWS = 30;
+    const pageCount = Math.max(1, Math.ceil(records.length / MAX_ROWS));
+    const today = new Date();
+    const printDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+    const printDateTime = `${printDate}, ${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`;
+    const tecnico = tecnicoName || '';
+
+    let sheets = '';
+
+    for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+      const pageStart = pageIndex * MAX_ROWS;
+      let rows = '';
+
+      for (let index = pageStart; index < pageStart + MAX_ROWS; index += 1) {
+        const record = records[index];
+        if (!record) {
+          rows += '<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+          continue;
+        }
+        const status = record.status || 'orcamento';
+        const isIsento = status === 'orcamento' && record.taxa === 'isento';
+        const showEntryTime = isBudgetStatus(status);
+        const completedDateText = formatDate(record.data);
+        const elapsedText = showEntryTime ? formatElapsedDays(record.dataEntrada, record.data) : '';
+        const elapsedClass = showEntryTime && isElapsedOver24Hours(record.dataEntrada, record.data) ? ' class="elapsed-overdue"' : '';
+        rows += `
+        <tr${isIsento ? ' class="row-isento"' : ''}>
+          <td title="${escapeHtml(record.modelo || '')}">${escapeHtml(record.modelo || '')}</td>
+          <td title="${escapeHtml(record.serie || '')}">${escapeHtml(record.serie || '')}</td>
+          <td title="${escapeHtml(record.os || '')}">${escapeHtml(record.os || '')}</td>
+          <td class="orcamento check">${status === 'orcamento' ? 'X' : ''}</td>
+          <td class="aprovada check">${status === 'aprovada' ? 'X' : ''}</td>
+          <td class="garantia check">${status === 'garantia' ? 'X' : ''}</td>
+          <td class="remoto check">${status === 'remoto' ? 'X' : ''}</td>
+          <td>${escapeHtml(completedDateText)}</td>
+          <td${elapsedClass} title="${escapeHtml(elapsedText)}">${escapeHtml(elapsedText)}</td>
+        </tr>`;
+      }
+
+      sheets += `
+      <div class="sheet">
+        <div class="sheet-meta">
+          <span>${printDateTime}</span>
+          <span class="sheet-meta-center">Controle de Produção - ${escapeHtml(periodLabel)}</span>
+          <span></span>
+        </div>
+        <div class="sheet-title">Controle de Produção</div>
+        <div class="table-area">
+          <div class="side-label">
+            <div class="side-number">${pageStart + 1}</div>
+            <div class="vertical-text">Quantidade de Impressoras</div>
+            <div class="side-number end">${pageStart + MAX_ROWS}</div>
+          </div>
+          <table>
+            <colgroup>
+              <col class="model-col">
+              <col class="serie-col">
+              <col class="os-col">
+              <col class="status-col">
+              <col class="status-col">
+              <col class="status-col">
+              <col class="status-col">
+              <col class="date-col">
+              <col class="elapsed-col">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Modelo</th>
+                <th>Nº Serie</th>
+                <th>Nº O.S</th>
+                <th class="status orcamento">Orçamento</th>
+                <th class="status aprovada">Aprovada</th>
+                <th class="status garantia">Garantia</th>
+                <th class="status remoto">Aces. remoto</th>
+                <th class="compact-date">Concluido</th>
+                <th class="compact-date budget-deadline-header"><span>Prazo do<br>orçamento<br>24H</span></th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div class="footer">
+          <div>Técnico <span class="line">${escapeHtml(tecnico)}</span></div>
+          <div>Data <span class="line date-line">${printDate}</span></div>
+          <span class="sheet-page-indicator">${pageIndex + 1}/${pageCount}</span>
+        </div>
+      </div>`;
+    }
+
+    tableWindow.document.open();
+    tableWindow.document.write(`<!doctype html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Controle de Produção - ${escapeHtml(periodLabel)}</title>
+        <style>
+          :root {
+            --ink: #171717;
+            --muted: #666;
+            --line: #1d1d1d;
+            --table-line-width: 1px;
+            --sheet-width: 820px;
+            --sheet-height: 1040px;
+            --sheet-meta-height: 22px;
+            --sheet-title-height: 58px;
+            --sheet-footer-height: 44px;
+            --table-header-height: 90px;
+            --table-row-height: 30px;
+            --side-label-width: 54px;
+            --soft-line: #d7d7d7;
+            --paper: #ffffff;
+            --green: #eef7a4;
+            --yellow: #fff6c9;
+            --red: #ffa995;
+            --blue: #bbcee5;
+          }
+
+          * { box-sizing: border-box; }
+
+          body {
+            margin: 0;
+            padding: 16px;
+            background: #f4f6f8;
+            color: var(--ink);
+            font-family: Arial, Helvetica, sans-serif;
+          }
+
+          .screen-bar {
+            max-width: 820px;
+            margin: 0 auto 16px;
+            font-size: 13px;
+            color: var(--muted);
+          }
+
+          .screen-bar strong { color: var(--ink); }
+
+          .sheet-wrap { display: flex; flex-direction: column; gap: 28px; }
+
+          .sheet {
+            width: var(--sheet-width);
+            margin: 0 auto;
+            min-height: var(--sheet-height);
+            display: flex;
+            flex-direction: column;
+            background: var(--paper);
+            border: 1px solid var(--soft-line);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, .08);
+            border-radius: 2px;
+          }
+
+          .sheet-meta {
+            height: var(--sheet-meta-height);
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            align-items: center;
+            padding: 0 4px;
+            font-size: 9px;
+            color: var(--ink);
+          }
+
+          .sheet-meta-center {
+            text-align: center;
+          }
+
+          .sheet-title {
+            height: var(--sheet-title-height);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: var(--table-line-width) solid var(--line);
+            border-bottom: var(--table-line-width) solid var(--line);
+            font-size: 33px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0;
+          }
+
+          .table-area {
+            display: grid;
+            grid-template-columns: var(--side-label-width) 1fr;
+            height: calc(var(--table-header-height) + (var(--table-row-height) * 30));
+            overflow: hidden;
+            border-bottom: var(--table-line-width) solid var(--line);
+            border-left: var(--table-line-width) solid var(--line);
+          }
+
+          .side-label {
+            border-right: var(--table-line-width) solid var(--line);
+            display: grid;
+            grid-template-rows: var(--table-header-height) 1fr var(--table-row-height);
+            min-height: calc(var(--table-header-height) + (var(--table-row-height) * 30));
+          }
+
+          .side-number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: var(--table-line-width) solid var(--line);
+            font-size: 22px;
+          }
+
+          .side-number.end {
+            border-top: var(--table-line-width) solid var(--line);
+            border-bottom: 0;
+          }
+
+          .vertical-text {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            font-size: 23px;
+            letter-spacing: 1px;
+          }
+
+          table {
+            width: 100%;
+            height: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            table-layout: fixed;
+          }
+
+          thead tr {
+            height: var(--table-header-height);
+          }
+
+          tbody tr {
+            height: var(--table-row-height);
+          }
+
+          th, td {
+            border-right: var(--table-line-width) solid var(--line);
+            border-bottom: var(--table-line-width) solid var(--line);
+            height: var(--table-row-height);
+            padding: 2px 6px;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 14px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          th {
+            height: var(--table-header-height);
+            font-size: 22px;
+            font-weight: 500;
+            vertical-align: bottom;
+            padding-bottom: 8px;
+            text-transform: uppercase;
+          }
+
+          th.status {
+            width: 40px;
+            padding: 0;
+            vertical-align: middle;
+            font-size: 13px;
+            font-weight: 700;
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+          }
+
+          .model-col { width: 124px; }
+          .serie-col { width: 96px; }
+          .os-col { width: 98px; }
+          .date-col { width: 92px; }
+          .elapsed-col { width: 82px; }
+          th.compact-date {
+            font-size: 14px;
+            padding: 0 4px 8px;
+            vertical-align: bottom;
+          }
+          th.budget-deadline-header {
+            height: 62px;
+            padding: 0;
+            vertical-align: middle;
+          }
+          th.budget-deadline-header span {
+            display: block;
+            font-size: 13px;
+            font-weight: 400;
+            line-height: 1.08;
+            text-align: center;
+            text-transform: uppercase;
+          }
+
+          .orcamento { background: var(--green); }
+          .aprovada { background: var(--yellow); }
+          .garantia { background: var(--red); }
+          .remoto { background: var(--blue); }
+
+          tbody td { font-size: 15px; }
+          tbody tr:first-child td:nth-child(n+4):nth-child(-n+7) {
+            border-top: var(--table-line-width) solid var(--line);
+          }
+          tbody tr:last-child td { border-bottom: 0; }
+
+          .check { font-size: 18px; font-weight: 700; }
+
+          tbody tr.row-isento td { background: rgba(233,236,239,.45); }
+          tbody tr.row-isento td.orcamento { background: #d6e4cc; position: relative; }
+          tbody tr.row-isento td.orcamento::after {
+            content: 'isento';
+            position: absolute;
+            bottom: 1px;
+            right: 3px;
+            font-size: 8px;
+            font-weight: 700;
+            color: #888;
+            letter-spacing: .3px;
+            text-transform: uppercase;
+          }
+
+          .date-empty { color: #222; font-size: 20px; }
+
+          .elapsed-overdue {
+            color: #c62828;
+            font-weight: 400;
+          }
+
+          .footer {
+            position: relative;
+            height: var(--sheet-footer-height);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+            gap: 24px;
+            padding: 0 28px;
+            font-size: 22px;
+          }
+
+          .line {
+            display: inline-block;
+            min-width: 210px;
+            border-bottom: var(--table-line-width) solid var(--line);
+            transform: translateY(-3px);
+          }
+
+          .date-line { min-width: 170px; }
+
+          .sheet-page-indicator {
+            position: absolute;
+            right: 4px;
+            bottom: 2px;
+            font-size: 8px;
+          }
+
+          @media (max-width: 900px) {
+            body { padding: 8px; }
+            .sheet-wrap { gap: 16px; }
+          }
+
+          @media print {
+            @page {
+              size: 21cm 29.7cm;
+              margin: 10mm;
+            }
+
+            html,
+            body {
+              width: auto;
+              min-height: auto;
+              margin: 0;
+            }
+
+            body {
+              background: #fff;
+              padding: 0;
+            }
+
+            .screen-bar { display: none; }
+
+            .sheet-wrap { gap: 0; }
+
+            .sheet {
+              width: 19cm;
+              height: 27.7cm;
+              min-height: 27.7cm;
+              --sheet-width: 19cm;
+              --sheet-height: 27.7cm;
+              --sheet-meta-height: 6mm;
+              --sheet-title-height: 20mm;
+              --sheet-footer-height: 13mm;
+              --table-header-height: 34mm;
+              --table-row-height: calc((27.7cm - 6mm - 20mm - 13mm - 34mm - var(--table-line-width)) / 30);
+              --side-label-width: 14mm;
+              border: 0;
+              box-shadow: none;
+              page-break-after: always;
+              break-after: page;
+            }
+
+            .sheet:last-child {
+              page-break-after: auto;
+              break-after: auto;
+            }
+
+            .sheet-meta {
+              font-size: 6pt;
+            }
+
+            .sheet-title {
+              font-size: 20pt;
+            }
+
+            .vertical-text {
+              font-size: 14pt;
+            }
+
+            th {
+              font-size: 12pt;
+            }
+
+            th.status {
+              font-size: 7pt;
+            }
+
+            th.compact-date {
+              font-size: 15px;
+            }
+
+            th.budget-deadline-header span {
+              font-size: 12px;
+            }
+
+            td,
+            tbody td {
+              font-size: 15px;
+            }
+
+            tbody td {
+              line-height: 1;
+              padding-top: 0;
+              padding-bottom: 0;
+            }
+
+            .check {
+              font-size: 18px;
+              line-height: 1;
+            }
+
+            .footer {
+              height: var(--sheet-footer-height);
+              font-size: 12pt;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="screen-bar">
+          <strong>${escapeHtml(periodLabel)}</strong> &mdash; ${records.length} O.S &mdash; <a href="#" onclick="window.print(); return false;">Imprimir</a>
+        </div>
+        <div class="sheet-wrap">${sheets}</div>
+      </body>
+      </html>`);
+    tableWindow.document.close();
+  }
+
+  function buildMonthlyData(records, yearFilter, monthFilter) {
+    const map = {};
+
+    monthlyReports.forEach(report => {
+      if (!reportMatchesFilter(report, yearFilter, monthFilter)) return;
+      if (!report || !report.key) return;
+      const orcamento = Number(report.orcamento || 0);
+      const aprovada = Number(report.aprovada || 0);
+      const garantia = Number(report.garantia || 0);
+      const remoto = Number(report.remoto || 0);
+      map[report.key] = {
+        key: report.key,
+        label: report.label || report.key,
+        orcamento,
+        aprovada,
+        garantia,
+        remoto,
+        modelos: report.modelos && typeof report.modelos === 'object' ? report.modelos : {},
+        taxaTotal: Number(report.taxaTotal || 0),
+        aprovadaTotal: Number(report.aprovadaTotal || 0),
+        isentos: Number(report.isentos || 0),
+        comTaxa: Number(report.comTaxa || 0)
+      };
+    });
+
+    records.forEach(r => {
+      const ym = getYearMonth(r);
+      if (!ym) return;
+      const key = `${ym.year}-${String(ym.month+1).padStart(2,'0')}`;
+      if (!reportMatchesFilter({ key, year: ym.year, month: ym.month + 1 }, yearFilter, monthFilter)) return;
+      if (!map[key]) {
+        map[key] = {
+          key, label: `${MESES[ym.month]}/${ym.year}`,
+          orcamento:0, aprovada:0, garantia:0, remoto:0, modelos:{},
+          taxaTotal:0, aprovadaTotal:0, isentos:0, comTaxa:0
+        };
+      } else {
+        map[key].orcamento = 0;
+        map[key].aprovada = 0;
+        map[key].garantia = 0;
+        map[key].remoto = 0;
+        map[key].modelos = {};
+        map[key].taxaTotal = 0;
+        map[key].aprovadaTotal = 0;
+        map[key].isentos = 0;
+        map[key].comTaxa = 0;
+      }
+
+      records
+        .filter(record => getYearMonth(record)?.year === ym.year && getYearMonth(record)?.month === ym.month)
+        .forEach(record => {
+          const status = record.status || 'orcamento';
+          if (map[key][status] !== undefined) map[key][status]++;
+          if (record.modelo) map[key].modelos[record.modelo] = (map[key].modelos[record.modelo]||0)+1;
+
+          if (status === 'orcamento') {
+            if (record.taxa === 'taxa') {
+              map[key].taxaTotal += TAXA_VALUE;
+              map[key].comTaxa++;
+            } else if (record.taxa === 'outros') {
+              map[key].taxaTotal += Number(record.valor) || 0;
+              map[key].comTaxa++;
+            } else {
+              map[key].isentos++;
+            }
+          } else if (status === 'aprovada') {
+            map[key].aprovadaTotal += Number(record.valor) || 0;
+          }
+      });
+    });
+
+    const keys = Object.keys(map).sort();
+    return keys.map(k => ({ key: k, ...map[k] }));
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────
+  function render(yearFilter, monthFilter) {
+    const records = getFiltered(yearFilter, monthFilter);
+    const monthly = buildMonthlyData(records, yearFilter, monthFilter);
+
+    // KPIs
+    const tot  = monthly.reduce((sum, m) => sum + m.orcamento + m.aprovada + m.garantia + m.remoto, 0);
+    const orc  = monthly.reduce((sum, m) => sum + m.orcamento, 0);
+    const apr  = monthly.reduce((sum, m) => sum + m.aprovada, 0);
+    const gar  = monthly.reduce((sum, m) => sum + m.garantia, 0);
+    const rem  = monthly.reduce((sum, m) => sum + m.remoto, 0);
+    const taxaTotal     = monthly.reduce((sum, m) => sum + m.taxaTotal, 0);
+    const aprovadaTotal = monthly.reduce((sum, m) => sum + m.aprovadaTotal, 0);
+    const isentosTotal  = monthly.reduce((sum, m) => sum + m.isentos, 0);
+    const comTaxaTotal  = monthly.reduce((sum, m) => sum + m.comTaxa, 0);
+    const valorTotal    = taxaTotal + aprovadaTotal;
+
+    document.getElementById('kpiTotal').textContent     = tot;
+    document.getElementById('kpiValorTotal').textContent = formatCurrency(valorTotal);
+    document.getElementById('kpiIsentos').textContent    = isentosTotal;
+    document.getElementById('kpiOrcamento').textContent = orc;
+    document.getElementById('kpiAprovada').textContent  = apr;
+    document.getElementById('kpiGarantia').textContent  = gar;
+    document.getElementById('kpiRemoto').textContent    = rem;
+    document.getElementById('kpiOrcPct').textContent    = pct(orc, tot) + ' do total';
+    document.getElementById('kpiAprPct').textContent    = pct(apr, tot) + ' do total';
+    document.getElementById('kpiGarPct').textContent    = pct(gar, tot) + ' do total';
+    document.getElementById('kpiRemPct').textContent    = pct(rem, tot) + ' do total';
+    document.getElementById('kpiValorSub').textContent  = `Taxas: ${formatCurrency(taxaTotal)} | Aprovadas: ${formatCurrency(aprovadaTotal)}`;
+    document.getElementById('kpiIsentosSub').textContent = comTaxaTotal > 0
+      ? `${comTaxaTotal} com taxa | ${isentosTotal} isentos`
+      : `${isentosTotal} isento${isentosTotal !== 1 ? 's' : ''}`;
+
+    const years = [...new Set(monthly.map(m => Number(String(m.key).slice(0, 4))).filter(Boolean))];
+    const anoTxt = yearFilter === 'all'
+      ? (years.length ? years.sort().join(', ') : 'sem data')
+      : yearFilter;
+    const periodo = (monthFilter !== undefined && monthFilter !== 'all')
+      ? `${MESES_FULL[parseInt(monthFilter)]} / ${anoTxt}`
+      : anoTxt;
+    document.getElementById('kpiPeriodo').textContent = 'Período: ' + periodo;
+    document.getElementById('headerSub').textContent = `${tot} O.S registradas — Período: ${periodo}`;
+
+    // Modelos mais frequentes: modelo e quantidade no período selecionado.
+    const modelFreq = Object.create(null);
+    monthly.forEach(month => {
+      Object.entries(month.modelos || {}).forEach(([model, count]) => {
+        modelFreq[model] = (modelFreq[model] || 0) + Number(count || 0);
+      });
+    });
+    const topModels = Object.entries(modelFreq).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const modelsBody = document.getElementById('modelsBody');
+    modelsBody.replaceChildren();
+    if (!topModels.length) {
+      const row = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.colSpan = 2;
+      cell.textContent = 'Sem modelos no período selecionado.';
+      row.append(cell);
+      modelsBody.append(row);
+    } else {
+      topModels.forEach(([model, count]) => {
+        const row = document.createElement('tr');
+        const nameCell = document.createElement('td');
+        const countCell = document.createElement('td');
+        nameCell.textContent = model;
+        countCell.textContent = count;
+        row.append(nameCell, countCell);
+        modelsBody.append(row);
+      });
+    }
+
+    // ── Summary table ──────────────────────────────────────────────────
+    const tbody = document.getElementById('summaryBody');
+    tbody.innerHTML = '';
+    monthly.forEach(m => {
+      const t = m.orcamento + m.aprovada + m.garantia + m.remoto;
+      const top = Object.entries(m.modelos).sort((a,b)=>b[1]-a[1])[0];
+      const mesValor = m.taxaTotal + m.aprovadaTotal;
+      tbody.innerHTML += `
+        <tr>
+          <td>${m.label}</td>
+          <td><strong>${t}</strong></td>
+          <td>${m.orcamento} <span style="color:var(--muted);font-size:11px">(${pct(m.orcamento,t)})</span></td>
+          <td>${m.aprovada}  <span style="color:var(--muted);font-size:11px">(${pct(m.aprovada,t)})</span></td>
+          <td>${m.garantia}  <span style="color:var(--muted);font-size:11px">(${pct(m.garantia,t)})</span></td>
+          <td>${m.remoto}    <span style="color:var(--muted);font-size:11px">(${pct(m.remoto,t)})</span></td>
+          <td><strong>${mesValor > 0 ? formatCurrency(mesValor) : '—'}</strong></td>
+          <td>${m.isentos > 0 ? m.isentos + ' isento' + (m.isentos > 1 ? 's' : '') : '—'}</td>
+          <td><span style="font-size:13px;color:var(--text)">${top ? top[0] + ' ('+top[1]+')' : '—'}</span></td>
+        </tr>
+      `;
+    });
+
+    // Totals row
+    tbody.innerHTML += `
+      <tr style="border-top:2px solid var(--border)">
+        <td><strong>TOTAL</strong></td>
+        <td><strong>${tot}</strong></td>
+        <td><strong>${orc}</strong></td>
+        <td><strong>${apr}</strong></td>
+        <td><strong>${gar}</strong></td>
+        <td><strong>${rem}</strong></td>
+        <td><strong>${valorTotal > 0 ? formatCurrency(valorTotal) : '—'}</strong></td>
+        <td><strong>${isentosTotal > 0 ? isentosTotal : '—'}</strong></td>
+        <td style="color:var(--muted)">—</td>
+      </tr>
+    `;
+
+    // ── Comparativo entre meses (sempre por todos os meses do ano filtrado) ─
+    const compMonthly = buildMonthlyData(getFiltered(yearFilter, 'all'), yearFilter, 'all');
+    const compLabels  = compMonthly.map(m => m.label);
+    const compTotais  = compMonthly.map(m => m.orcamento + m.aprovada + m.garantia + m.remoto);
+
+    const compBody = document.getElementById('comparativoBody');
+    compBody.innerHTML = '';
+    compMonthly.forEach((m, i) => {
+      const t = m.orcamento + m.aprovada + m.garantia + m.remoto;
+      const prev = i > 0 ? compTotais[i-1] : null;
+      let delta = '—', deltaPct = '—', color = 'var(--muted)';
+      if (prev !== null) {
+        const d = t - prev;
+        delta = (d > 0 ? '+' : '') + d;
+        deltaPct = prev === 0 ? '—' : (d > 0 ? '+' : '') + Math.round(d / prev * 100) + '%';
+        color = d > 0 ? 'var(--orcamento)' : (d < 0 ? 'var(--garantia)' : 'var(--muted)');
+      }
+      compBody.innerHTML += `
+        <tr>
+          <td>${m.label}</td>
+          <td><strong>${t}</strong></td>
+          <td>${m.orcamento}</td>
+          <td>${m.aprovada}</td>
+          <td>${m.garantia}</td>
+          <td>${m.remoto}</td>
+          <td style="color:${color};font-weight:700">${delta}</td>
+          <td style="color:${color};font-weight:700">${deltaPct}</td>
+        </tr>
+      `;
+    });
+    if (!compMonthly.length) {
+      compBody.innerHTML = `<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:18px">Sem dados para comparar.</td></tr>`;
+    }
+  }
+
+  function prepareReportPrint() {
+    let output = document.getElementById('printReport');
+    if (!output) { output = document.createElement('div'); output.id = 'printReport'; document.body.append(output); }
+    output.replaceChildren();
+    const hasData = document.getElementById('appContent').style.display === 'block';
+    const groups = hasData
+      ? [[document.querySelector('.summary-card'), document.querySelector('[aria-labelledby="modelsHeading"]')], [document.getElementById('summaryBody').closest('.table-card'), document.getElementById('comparativoBody').closest('.table-card')]]
+      : [[document.getElementById('emptyState')]];
+    groups.forEach((cards, index) => {
+      const page = document.createElement('section'); page.className = 'report-print-sheet';
+      const content = document.createElement('div'); content.className = 'report-print-content';
+      const heading = document.createElement('div'); heading.className = 'report-print-heading';
+      const title = document.createElement('h1'); title.textContent = 'Relatório de produção';
+      const scope = document.createElement('p'); scope.textContent = tecnicoName || 'Produção';
+      const period = document.createElement('p'); period.textContent = hasData ? document.getElementById('kpiPeriodo').textContent : 'Sem produção cadastrada';
+      heading.append(title, scope, period); content.append(heading);
+      cards.forEach(card => {
+        if (!card) return;
+        const clone = card.cloneNode(true);
+        clone.removeAttribute('id'); clone.removeAttribute('aria-labelledby');
+        clone.querySelectorAll('[id], [aria-labelledby]').forEach(node => { node.removeAttribute('id'); node.removeAttribute('aria-labelledby'); });
+        content.append(clone);
+      });
+      const footer = document.createElement('div'); footer.className = 'report-print-footer';
+      const label = document.createElement('span'); label.textContent = 'Controle de Produção';
+      const number = document.createElement('span'); number.textContent = `Página ${index + 1} de ${groups.length}`;
+      footer.append(label, number); page.append(content, footer); output.append(page);
+    });
+    output.classList.add('is-measuring');
+    try {
+      output.querySelectorAll('.report-print-sheet').forEach(page => {
+        const content = page.querySelector('.report-print-content');
+        content.style.transform = 'none';
+        const available = page.clientHeight - page.querySelector('.report-print-footer').offsetHeight - 16;
+        if (content.scrollHeight > available) content.classList.add('is-dense');
+        let scale = 1;
+        for (let attempt = 0; attempt < 4; attempt++) {
+          content.style.width = `${186 / scale}mm`;
+          const fitted = Math.min(scale, available / Math.max(content.scrollHeight, content.getBoundingClientRect().height, 1));
+          if (Math.abs(fitted - scale) < .001) { scale = fitted; break; }
+          scale = fitted;
+        }
+        content.style.width = `${186 / scale}mm`;
+        content.style.transform = `scale(${scale})`;
+      });
+    } finally { output.classList.remove('is-measuring'); }
+  }
+
+  document.getElementById('printReportButton').addEventListener('click', () => { prepareReportPrint(); window.print(); });
+  window.addEventListener('beforeprint', prepareReportPrint);
+  window.addEventListener('afterprint', () => document.getElementById('printReport')?.remove());
+
+
+  // ── Init ───────────────────────────────────────────────────────────────
+  async function init() {
+    const data = await loadData();
+    if (!data) {
+      const empty = document.getElementById('emptyState');
+      empty.textContent = 'Não foi possível carregar o relatório. Recarregue a página para tentar novamente.';
+      empty.style.display = 'block';
+      return;
+    }
+    allRecords = mergeDetailedRecords(data.archivedRecords, data.records);
+    monthlyReports = data.monthlyReports;
+    tecnicoName = data.tecnico;
+    document.getElementById('printReportButton').disabled = false;
+
+    if (!allRecords.length && !monthlyReports.length) {
+      document.getElementById('emptyState').style.display = 'block';
+      return;
+    }
+
+    document.getElementById('appContent').style.display = 'block';
+
+    // Populate year filter
+    const recordYears = allRecords.map(r => getYearMonth(r)?.year).filter(Boolean);
+    const reportYears = monthlyReports.map(r => Number(r.year || String(r.key || '').slice(0, 4))).filter(Boolean);
+    const years = [...new Set([...recordYears, ...reportYears])].sort();
+    const sel = document.getElementById('yearFilter');
+    years.forEach(y => {
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y;
+      sel.appendChild(opt);
+    });
+    if (years.length === 1) sel.value = years[0];
+
+    // Populate month filter
+    const monthSel = document.getElementById('monthFilter');
+    MESES_FULL.forEach((name, idx) => {
+      const opt = document.createElement('option');
+      opt.value = idx; opt.textContent = name;
+      monthSel.appendChild(opt);
+    });
+
+    const today = new Date();
+    const currentYear = String(today.getFullYear());
+    const currentMonth = String(today.getMonth());
+    if ([...sel.options].some(option => option.value === currentYear)) {
+      sel.value = currentYear;
+      monthSel.value = currentMonth;
+    }
+
+    const reportMonthInput = document.getElementById('reportMonthSearch');
+    const reportMonthButton = document.getElementById('reportMonthButton');
+    const showTableButton = document.getElementById('showTableButton');
+    const clearMonthSearch = document.getElementById('clearMonthSearch');
+
+    function syncMonthSearchInput() {
+      if (sel.value === 'all' || monthSel.value === 'all') {
+        reportMonthInput.value = '';
+        return;
+      }
+      reportMonthInput.value = `${sel.value}-${String(Number(monthSel.value) + 1).padStart(2, '0')}`;
+    }
+
+    const update = () => {
+      syncMonthSearchInput();
+      render(sel.value, monthSel.value);
+    };
+
+    reportMonthButton.addEventListener('click', () => {
+      const value = reportMonthInput.value;
+      if (!value) {
+        monthSel.value = 'all';
+        render(sel.value, monthSel.value);
+        return;
+      }
+
+      const [year, month] = value.split('-');
+      if (![...sel.options].some(option => option.value === year)) {
+        const opt = document.createElement('option');
+        opt.value = year;
+        opt.textContent = year;
+        sel.appendChild(opt);
+      }
+      sel.value = year;
+      monthSel.value = String(Number(month) - 1);
+      render(sel.value, monthSel.value);
+    });
+
+    showTableButton.addEventListener('click', () => {
+      const records = getFiltered(sel.value, monthSel.value);
+      openRecordsTable(records, getPeriodLabel(sel.value, monthSel.value));
+    });
+
+    clearMonthSearch.addEventListener('click', () => {
+      sel.value = years.length === 1 ? String(years[0]) : 'all';
+      monthSel.value = 'all';
+      reportMonthInput.value = '';
+      render(sel.value, monthSel.value);
+    });
+
+    reportMonthInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        reportMonthButton.click();
+      }
+    });
+
+    sel.addEventListener('change', update);
+    monthSel.addEventListener('change', update);
+    update();
+  }
+
+  init();
+</script>
+</body>
+</html>

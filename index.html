@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Controle de Produção — Início</title>
+  <style>
+    :root {
+      --ink: #171717;
+      --muted: #666;
+      --soft-line: #d7d7d7;
+      --paper: #ffffff;
+      --screen: #f4f6f8;
+      --accent: #226b5f;
+      --accent-strong: #155348;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      color: var(--ink);
+      background: var(--screen);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .card {
+      width: min(520px, 100%);
+      background: var(--paper);
+      border: 1px solid var(--soft-line);
+      border-radius: 10px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, .08);
+      padding: 28px 24px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 26px;
+      line-height: 1.15;
+    }
+
+    p {
+      margin: 0 0 22px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .menu {
+      display: grid;
+      gap: 10px;
+    }
+
+    a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 52px;
+      padding: 12px 14px;
+      border: 1px solid var(--soft-line);
+      border-radius: 8px;
+      color: var(--ink);
+      text-decoration: none;
+      font-weight: 700;
+      background: #fff;
+      transition: background .15s, border-color .15s;
+    }
+
+    a:hover {
+      background: #f7faf9;
+      border-color: #b8d0cb;
+    }
+
+    a.primary {
+      background: var(--accent);
+      border-color: var(--accent-strong);
+      color: #fff;
+    }
+
+    a.primary:hover {
+      filter: brightness(.98);
+    }
+
+    a.primary .hint {
+      color: #fff;
+    }
+
+    .hint {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--muted);
+    }
+
+    .note {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--soft-line);
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .menu label { font-weight: 600; }
+    .menu input, .menu button {
+      padding: 10px 12px;
+      border: 1px solid var(--soft-line);
+      border-radius: 8px;
+      font: inherit;
+    }
+    .menu button { background: #1659a1; color: white; cursor: pointer; }
+    .menu[hidden], [hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Controle de Produção</h1>
+    <p id="intro">Informe a senha de acesso para abrir o controle de produção.</p>
+
+    <form class="menu" id="login" method="post" action="/api/login">
+      <label for="senha">Senha de acesso</label>
+      <input id="senha" name="senha" type="password" autocomplete="current-password" required>
+      <button type="submit">Entrar no sistema</button>
+      <p id="loginError" role="alert" hidden>Senha incorreta. Tente novamente.</p>
+    </form>
+    <nav class="menu" id="local" aria-label="Menu principal" hidden>
+      <a class="primary" href="controle-producao.html">Abrir cadastro</a>
+      <a href="relatorio-producao.html">Abrir relatório</a>
+    </nav>
+
+    <p class="note"><a href="https://controle-producao-equipe-103.wiggly-dace-3138.chatgpt.site/login.html">Acessar o sistema anterior</a></p>
+  </main>
+  <script>
+    if (location.port === '3847' && location.protocol === 'http:') {
+      document.getElementById('login').hidden = true;
+      document.getElementById('local').hidden = false;
+      document.getElementById('intro').textContent = 'Abra o cadastro ou o relatório no modo local.';
+    }
+    document.getElementById('loginError').hidden = new URLSearchParams(location.search).get('erro') !== 'senha';
+  </script>
+</body>
+</html>

@@ -1,0 +1,2907 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Controle de Produção</title>
+  <style>
+    :root {
+      --ink: #171717;
+      --muted: #666;
+      --line: #1d1d1d;
+      --table-line-width: 1px;
+      --sheet-width: 820px;
+      --sheet-height: 1040px;
+      --sheet-meta-height: 22px;
+      --sheet-title-height: 58px;
+      --sheet-footer-height: 44px;
+      --table-header-height: 90px;
+      --table-row-height: 30px;
+      --side-label-width: 54px;
+      --soft-line: #d7d7d7;
+      --paper: #ffffff;
+      --screen: #f4f6f8;
+      --green: #eef7a4;
+      --yellow: #fff6c9;
+      --red: #ffa995;
+      --blue: #bbcee5;
+      --accent: #226b5f;
+      --accent-strong: #155348;
+      --danger: #a33c38;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--screen);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    main {
+      min-height: 100vh;
+      padding: 12px;
+      display: flex;
+      align-items: stretch;
+    }
+
+    .app {
+      width: min(1920px, 100%);
+      min-height: min(1080px, calc(100vh - 24px));
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .app.table-hidden {
+      width: min(1920px, 100%);
+      grid-template-columns: 1fr;
+      place-items: center;
+    }
+
+    .panel,
+    .sheet {
+      background: var(--paper);
+      border: 1px solid var(--soft-line);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, .08);
+    }
+
+    .panel {
+      padding: 14px;
+      border-radius: 8px;
+      position: sticky;
+      top: 12px;
+    }
+
+    .table-hidden .panel {
+      position: static;
+      width: min(680px, 100%);
+      min-height: auto;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .panel h1 {
+      margin: 0 0 12px;
+      font-size: 21px;
+      line-height: 1.15;
+      font-weight: 700;
+    }
+
+    form {
+      display: grid;
+      gap: 10px;
+    }
+
+    label,
+    .field-title {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #333;
+    }
+
+    input {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid #b8c0c7;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font: inherit;
+      background: #fff;
+    }
+
+    input[type="text"],
+    input:not([type]) {
+      text-transform: uppercase;
+    }
+
+    input:focus {
+      outline: 2px solid rgba(34, 107, 95, .22);
+      border-color: var(--accent);
+    }
+
+    input.is-invalid {
+      border-color: var(--danger);
+      outline: 2px solid rgba(163, 60, 56, .2);
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .status-grid input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .status-grid span {
+      display: flex;
+      min-height: 36px;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #b8c0c7;
+      border-radius: 6px;
+      padding: 7px 8px;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      background: #fff;
+    }
+
+    .status-grid input:checked + span {
+      color: #fff;
+      border-color: var(--accent-strong);
+      background: var(--accent);
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .options-menu {
+      position: relative;
+    }
+
+    .options-menu > button {
+      width: 100%;
+    }
+
+    .options-menu.is-open > button {
+      border-color: var(--accent);
+      background: #eef5f3;
+    }
+
+    .options-submenu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: auto;
+      z-index: 20;
+      display: grid;
+      gap: 4px;
+      width: min(340px, calc(100vw - 40px));
+      padding: 6px;
+      border: 1px solid var(--soft-line);
+      border-radius: 8px;
+      background: var(--paper);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, .12);
+    }
+
+    .options-submenu[hidden] {
+      display: none;
+    }
+
+    .options-submenu button {
+      width: 100%;
+      text-align: left;
+    }
+
+    button {
+      min-height: 37px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      background: #e8ecef;
+      color: #202020;
+    }
+
+    button:hover {
+      filter: brightness(.98);
+    }
+
+    .primary {
+      grid-column: 1 / -1;
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .danger {
+      color: var(--danger);
+      background: #fff1ef;
+      border-color: #f1bbb5;
+    }
+
+    .search-box {
+      display: grid;
+      gap: 7px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--soft-line);
+    }
+
+    .search-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+
+    .message {
+      min-height: 18px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .search-result {
+      display: grid;
+      gap: 8px;
+    }
+
+    .search-result-card {
+      margin: 0;
+      padding: 10px 12px;
+      border: 1px solid var(--soft-line);
+      border-radius: 8px;
+      background: #f8fafb;
+    }
+
+    .search-result-title {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-strong);
+    }
+
+    .search-result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 0 0 8px;
+    }
+
+    .search-result-edit {
+      min-height: 30px;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .search-result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 12px;
+      margin: 0;
+    }
+
+    .search-result-grid > div {
+      min-width: 0;
+    }
+
+    .search-result-grid dt {
+      margin: 0 0 2px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .02em;
+    }
+
+    .search-result-grid dd {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+      word-break: break-word;
+    }
+
+    .warning {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    .note {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 8px;
+      margin: -4px 0 12px;
+      flex-wrap: wrap;
+    }
+
+    .nav-links a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 5px 10px;
+      border: 1px solid var(--soft-line);
+      border-radius: 6px;
+      color: var(--accent-strong);
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      background: #f7faf9;
+    }
+
+    .nav-links .options-menu > button,
+    .nav-links > button {
+      display: inline-flex;
+      align-items: center;
+      width: auto;
+      min-height: 30px;
+      padding: 5px 10px;
+      border: 1px solid var(--soft-line);
+      color: var(--accent-strong);
+      font-size: 12px;
+      background: #f7faf9;
+    }
+
+    .nav-links a:hover {
+      background: #eef5f3;
+    }
+
+    .data-box {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--soft-line);
+    }
+
+    .stats {
+      margin: 0;
+      font-size: 12px;
+      color: #333;
+      font-weight: 700;
+    }
+
+    .table-hidden .note,
+    .table-hidden .message {
+      font-size: 12px;
+    }
+
+    .sheet-wrap {
+      overflow: auto;
+      padding-bottom: 8px;
+    }
+
+    .sheet-wrap.is-hidden {
+      display: none;
+    }
+
+    .sheet {
+      width: var(--sheet-width);
+      min-height: var(--sheet-height);
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      border-radius: 2px;
+    }
+
+    .sheet-meta {
+      height: var(--sheet-meta-height);
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      align-items: center;
+      padding: 0 4px;
+      font-size: 9px;
+      color: var(--ink);
+    }
+
+    .sheet-meta-center {
+      text-align: center;
+    }
+
+    .sheet-title {
+      height: var(--sheet-title-height);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: var(--table-line-width) solid var(--line);
+      border-bottom: var(--table-line-width) solid var(--line);
+      font-size: 33px;
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .table-area {
+      display: grid;
+      grid-template-columns: var(--side-label-width) 1fr;
+      height: calc(var(--table-header-height) + (var(--table-row-height) * 30));
+      overflow: hidden;
+      border-bottom: var(--table-line-width) solid var(--line);
+      border-left: var(--table-line-width) solid var(--line);
+    }
+
+    .side-label {
+      border-right: var(--table-line-width) solid var(--line);
+      display: grid;
+      grid-template-rows: var(--table-header-height) 1fr var(--table-row-height);
+      min-height: calc(var(--table-header-height) + (var(--table-row-height) * 30));
+    }
+
+    .side-number {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: var(--table-line-width) solid var(--line);
+      font-size: 22px;
+    }
+
+    .side-number.end {
+      border-top: var(--table-line-width) solid var(--line);
+      border-bottom: 0;
+    }
+
+    .vertical-text {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      font-size: 23px;
+      letter-spacing: 1px;
+    }
+
+    table {
+      width: 100%;
+      height: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      table-layout: fixed;
+    }
+
+    thead tr {
+      height: var(--table-header-height);
+    }
+
+    tbody tr {
+      height: var(--table-row-height);
+    }
+
+    th,
+    td {
+      border-right: var(--table-line-width) solid var(--line);
+      border-bottom: var(--table-line-width) solid var(--line);
+      height: var(--table-row-height);
+      padding: 2px 6px;
+      text-align: center;
+      vertical-align: middle;
+      font-size: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    th {
+      height: var(--table-header-height);
+      font-size: 22px;
+      font-weight: 500;
+      vertical-align: bottom;
+      padding-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    th.status {
+      width: 40px;
+      padding: 0;
+      vertical-align: middle;
+      font-size: 13px;
+      font-weight: 700;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+    }
+
+    .model-col {
+      width: 124px;
+    }
+
+    .serie-col {
+      width: 96px;
+    }
+
+    .os-col {
+      width: 98px;
+    }
+
+    .date-col {
+      width: 92px;
+    }
+
+    .elapsed-col {
+      width: 82px;
+    }
+
+    th.compact-date {
+      font-size: 14px;
+      padding: 0 4px 8px;
+      vertical-align: bottom;
+    }
+
+    th.budget-deadline-header {
+      height: 62px;
+      padding: 0;
+      vertical-align: middle;
+    }
+
+    th.budget-deadline-header span {
+      display: block;
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 1.08;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .orcamento {
+      background: var(--green);
+    }
+
+    .aprovada {
+      background: var(--yellow);
+    }
+
+    .garantia {
+      background: var(--red);
+    }
+
+    .remoto {
+      background: var(--blue);
+    }
+
+    tbody td {
+      font-size: 15px;
+    }
+
+    tbody tr:first-child td:nth-child(n+4):nth-child(-n+7) {
+      border-top: var(--table-line-width) solid var(--line);
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    tbody tr.found-row td {
+      outline: 3px solid #226b5f;
+      outline-offset: -3px;
+      font-weight: 700;
+    }
+
+    .date-empty {
+      color: #222;
+      font-size: 20px;
+    }
+
+    .elapsed-overdue {
+      color: #c62828;
+      font-weight: 400;
+    }
+
+    .check {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    tbody tr.row-isento td {
+      background: rgba(233,236,239,.45);
+    }
+    tbody tr.row-isento td.orcamento {
+      background: #d6e4cc;
+      position: relative;
+    }
+    tbody tr.row-isento td.orcamento::after {
+      content: 'isento';
+      position: absolute;
+      bottom: 1px;
+      right: 3px;
+      font-size: 8px;
+      font-weight: 700;
+      color: #888;
+      letter-spacing: .3px;
+      text-transform: uppercase;
+    }
+
+    /* Modal taxa/orcamento */
+    .modal-taxa-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, .45);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-taxa-overlay.is-open {
+      display: flex;
+    }
+    .modal-taxa {
+      background: var(--paper);
+      border: 1px solid var(--soft-line);
+      border-radius: 10px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, .25);
+      padding: 22px 26px;
+      min-width: 280px;
+      max-width: 340px;
+      text-align: center;
+    }
+    .modal-taxa h3 {
+      margin: 0 0 6px;
+      font-size: 16px;
+    }
+    .modal-taxa p {
+      margin: 0 0 16px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .modal-taxa-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+    .modal-taxa-buttons button {
+      flex: 1;
+      min-height: 40px;
+      border: 1px solid #b8c0c7;
+      border-radius: 6px;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    .modal-taxa-buttons button:hover {
+      border-color: var(--accent);
+    }
+    .modal-taxa-buttons .btn-taxa {
+      background: var(--green);
+      border-color: #b5be4a;
+      color: var(--ink);
+    }
+    .modal-taxa-buttons .btn-taxa:hover {
+      background: #dde980;
+    }
+    .modal-taxa-buttons .btn-isento {
+      background: #e9ecef;
+      color: var(--ink);
+    }
+    .modal-taxa-buttons .btn-isento:hover {
+      background: #dde1e5;
+    }
+    .modal-taxa-buttons .btn-outros {
+      background: #d4edda;
+      color: #155724;
+      border-color: #a3d9b1;
+    }
+    .modal-taxa-buttons .btn-outros:hover {
+      background: #b8e6c4;
+    }
+    .taxa-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+    .taxa-badge.com-taxa {
+      background: var(--green);
+      color: #3a5a00;
+    }
+    .taxa-badge.isento {
+      background: #e9ecef;
+      color: #555;
+    }
+    .taxa-badge.outros {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .footer {
+      position: relative;
+      height: var(--sheet-footer-height);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      gap: 24px;
+      padding: 0 28px;
+      font-size: 22px;
+    }
+
+    .sheet-page-indicator {
+      position: absolute;
+      right: 4px;
+      bottom: 2px;
+      font-size: 8px;
+    }
+
+    .line {
+      display: inline-block;
+      min-width: 210px;
+      border-bottom: var(--table-line-width) solid var(--line);
+      transform: translateY(-3px);
+    }
+
+    .date-line {
+      min-width: 170px;
+    }
+
+    @media (max-width: 900px) {
+      main {
+        padding: 10px;
+      }
+
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .panel {
+        position: static;
+      }
+
+      .sheet-wrap {
+        border: 1px solid var(--soft-line);
+        border-radius: 8px;
+        background: #fff;
+      }
+    }
+
+    @media print {
+      @page {
+        size: 21cm 29.7cm;
+        margin: 10mm;
+      }
+
+      html,
+      body {
+        background: #fff;
+        width: auto;
+        min-height: auto;
+        margin: 0;
+      }
+
+      main {
+        padding: 0;
+      }
+
+      .app {
+        display: block;
+        width: 100%;
+        margin: 0;
+      }
+
+      .panel {
+        display: none;
+      }
+
+      .sheet-wrap {
+        overflow: visible;
+        padding: 0;
+      }
+
+      .sheet {
+        width: 19cm;
+        height: 27.7cm;
+        min-height: 27.7cm;
+        --sheet-width: 19cm;
+        --sheet-height: 27.7cm;
+        --sheet-meta-height: 6mm;
+        --sheet-title-height: 20mm;
+        --sheet-footer-height: 13mm;
+        --table-header-height: 34mm;
+        --table-row-height: calc((27.7cm - 6mm - 20mm - 13mm - 34mm - var(--table-line-width)) / 30);
+        --side-label-width: 14mm;
+        border: 0;
+        box-shadow: none;
+        page-break-after: always;
+        break-after: page;
+      }
+
+      .sheet-meta {
+        font-size: 6pt;
+      }
+
+      .sheet-title {
+        font-size: 20pt;
+      }
+
+      .vertical-text {
+        font-size: 14pt;
+      }
+
+      th {
+        font-size: 12pt;
+      }
+
+      th.status {
+        font-size: 7pt;
+      }
+
+      th.compact-date {
+        font-size: 15px;
+      }
+
+      th.budget-deadline-header span {
+        font-size: 12px;
+      }
+
+      td,
+      tbody td {
+        font-size: 15px;
+      }
+
+      tbody td {
+        line-height: 1;
+        padding-top: 0;
+        padding-bottom: 0;
+      }
+
+      .check {
+        font-size: 18px;
+        line-height: 1;
+      }
+
+      .footer {
+        height: var(--sheet-footer-height);
+        font-size: 12pt;
+      }
+
+      .sheet:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="app">
+      <section class="panel" aria-label="Cadastro">
+        <h1>Controle de Produção</h1>
+        <nav class="nav-links" aria-label="Navegação">
+          <a href="index.html">Início</a>
+          <a href="relatorio-producao.html">Relatório</a>
+          <a href="/api/backup-pdf">Backups PDF</a>
+          <div class="options-menu" id="optionsMenuWrap">
+            <button type="button" id="optionsToggle" aria-expanded="false" aria-controls="optionsMenu" aria-haspopup="menu">Opções</button>
+            <div class="options-submenu" id="optionsMenu" role="menu" hidden>
+              <button type="button" id="clearForm" role="menuitem">Limpar campos</button>
+              <button type="button" id="clearSpecificField" role="menuitem">Limpar campo específico</button>
+              <button type="button" id="printTable" role="menuitem">Imprimir</button>
+              <button type="button" id="newTable" role="menuitem">Criar nova tabela</button>
+              <button type="button" id="savePdf" role="menuitem">Salvar em PDF</button>
+              <div class="search-box" aria-label="Pesquisar O.S">
+                <div>
+                  <label for="searchOs">Pesquisar número da O.S</label>
+                  <div class="search-row">
+                    <input id="searchOs" autocomplete="off">
+                    <button type="button" id="searchButton">Pesquisar</button>
+                  </div>
+                </div>
+                <div>
+                  <label for="searchMonth">Pesquisar por mês</label>
+                  <div class="search-row">
+                    <input id="searchMonth" type="month">
+                    <button type="button" id="searchMonthButton">Filtrar</button>
+                  </div>
+                </div>
+                <button class="danger" type="button" id="deleteMonthData">Apagar dados do mês</button>
+                <p class="message" id="searchMessage" aria-live="polite"></p>
+                <div class="search-result" id="searchResult" hidden aria-live="polite"></div>
+              </div>
+            </div>
+          </div>
+          <button type="button" id="editOs">Editar O.S</button>
+          <button type="button" id="deleteOs">Excluir O.S</button>
+        </nav>
+        <form id="entryForm">
+          <div>
+            <label for="os">Número da O.S</label>
+            <input id="os" name="os" autocomplete="off" required>
+          </div>
+
+          <div>
+            <label for="modelo">Modelo</label>
+            <input id="modelo" name="modelo" autocomplete="off" required>
+          </div>
+
+          <div>
+            <label for="serie">Número de série</label>
+            <input id="serie" name="serie" autocomplete="off" required>
+          </div>
+
+          <div>
+            <label for="data">Data do orçamento</label>
+            <input id="data" name="data" type="date" required>
+          </div>
+
+          <fieldset style="border:0; padding:0; margin:0;">
+            <legend class="field-title">Tipo da O.S</legend>
+            <div class="status-grid">
+              <label>
+                <input type="radio" name="status" value="orcamento" checked>
+                <span>Orçamento</span>
+              </label>
+              <label>
+                <input type="radio" name="status" value="aprovada">
+                <span>Aprovada</span>
+              </label>
+              <label>
+                <input type="radio" name="status" value="garantia">
+                <span>Garantia</span>
+              </label>
+              <label>
+                <input type="radio" name="status" value="remoto">
+                <span>Acesso remoto</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <div class="actions">
+            <button class="primary" type="submit">Inserir na tabela</button>
+          </div>
+        </form>
+
+        <div class="modal-taxa-overlay" id="modalDataEntrada">
+          <div class="modal-taxa">
+            <h3>Data de entrada</h3>
+            <p>Favor verificar a data de abertura da O.S.</p>
+            <input id="inputDataEntrada" type="date" style="width:100%; margin-bottom:14px; text-align:center; font-size:18px; font-weight:700;">
+            <div class="modal-taxa-buttons">
+              <button type="button" class="btn-taxa" id="btnDataEntradaConfirmar">Confirmar</button>
+              <button type="button" class="btn-isento" id="btnDataEntradaCancelar">Cancelar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-taxa-overlay" id="modalTaxa">
+          <div class="modal-taxa">
+            <h3>Tipo de Orçamento</h3>
+            <p>Selecione a opção de taxa para esta O.S:</p>
+            <div class="modal-taxa-buttons">
+              <button type="button" class="btn-taxa" id="btnTaxa">Com taxa (R$ 100,00)</button>
+              <button type="button" class="btn-isento" id="btnIsento">Isento (R$ 0,00)</button>
+              <button type="button" class="btn-outros" id="btnOutros">Outros (valor)</button>
+            </div>
+            <div id="outrosInputGroup" style="display:none; margin-top:14px;">
+              <label for="inputValorOutros" style="font-size:13px; color:var(--muted); display:block; margin-bottom:4px;">Informe o valor em R$:</label>
+              <input id="inputValorOutros" type="number" min="0" step="0.01" value="0" style="width:100%; margin-bottom:14px; text-align:center; font-size:18px; font-weight:700;">
+              <div class="modal-taxa-buttons">
+                <button type="button" class="btn-taxa" id="btnOutrosConfirmar">Confirmar</button>
+                <button type="button" class="btn-isento" id="btnOutrosCancelar">Cancelar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-taxa-overlay" id="modalValor">
+          <div class="modal-taxa">
+            <h3>Valor da Aprovada</h3>
+            <p>Informe o valor em R$ para esta O.S:</p>
+            <input id="inputValorAprovada" type="number" min="0" step="0.01" value="0" style="width:100%; margin-bottom:14px; text-align:center; font-size:18px; font-weight:700;">
+            <div class="modal-taxa-buttons">
+              <button type="button" class="btn-taxa" id="btnValorConfirmar">Confirmar</button>
+              <button type="button" class="btn-isento" id="btnValorCancelar">Cancelar</button>
+            </div>
+          </div>
+        </div>
+
+        <p class="message warning" id="duplicateWarning" aria-live="polite"></p>
+        <div class="data-box" aria-label="Dados">
+          <p class="stats" id="recordStats">0 O.S cadastradas.</p>
+        </div>
+        <p class="note">A tabela aceita até 30 lançamentos por página. Os PDFs ficam disponíveis em Backups PDF.</p>
+        <p class="note" id="syncStatus" role="status" hidden></p>
+        <button type="button" id="downloadPending" hidden>Baixar alterações pendentes (JSON)</button>
+      </section>
+
+      <div class="sheet-wrap is-hidden" id="sheetWrap" aria-label="Tabela">
+        <section class="sheet">
+          <div class="sheet-meta">
+            <span id="sheetPrintedAt"></span>
+            <span class="sheet-meta-center" id="sheetPeriod"></span>
+            <span></span>
+          </div>
+          <div class="sheet-title">Controle de Produção</div>
+          <div class="table-area">
+            <div class="side-label">
+              <div class="side-number">1</div>
+              <div class="vertical-text">Quantidade de Impressoras</div>
+              <div class="side-number end">30</div>
+            </div>
+
+            <table aria-label="Controle de produção">
+              <colgroup>
+                <col class="model-col">
+                <col class="serie-col">
+                <col class="os-col">
+                <col class="status-col">
+                <col class="status-col">
+                <col class="status-col">
+                <col class="status-col">
+                <col class="date-col">
+                <col class="elapsed-col">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Modelo</th>
+                  <th>Nº Serie</th>
+                  <th>Nº O.S</th>
+                  <th class="status orcamento">Orçamento</th>
+                  <th class="status aprovada">Aprovada</th>
+                  <th class="status garantia">Garantia</th>
+                  <th class="status remoto">Aces. remoto</th>
+                  <th class="compact-date">Concluido</th>
+                  <th class="compact-date budget-deadline-header"><span>Prazo do<br>orçamento<br>24H</span></th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+          <div class="footer">
+            <div>Técnico <span class="line" id="footerTecnico"></span></div>
+            <div>Data <span class="line date-line" id="footerDate"></span></div>
+            <span class="sheet-page-indicator" id="sheetPageIndicator">1/1</span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const MAX_ROWS = 30;
+    const STORAGE_KEY = 'controle-producao-registros';
+    const TECNICO_KEY = 'controle-producao-tecnico';
+    const BACKUP_KEY = 'controle-producao-last-pdf-backup';
+    const BACKUP_API = '/api/backup-pdf';
+    const DATA_API = '/api/data';
+    const PENDING_KEY = 'controle-producao-envio-pendente';
+    const syncStatus = document.getElementById('syncStatus');
+    const downloadPending = document.getElementById('downloadPending');
+    const app = document.querySelector('.app');
+    const form = document.getElementById('entryForm');
+    const submitButton = form.querySelector('button[type="submit"]');
+    const tableBody = document.getElementById('tableBody');
+    const clearFormButton = document.getElementById('clearForm');
+    const clearSpecificFieldButton = document.getElementById('clearSpecificField');
+    const printButton = document.getElementById('printTable');
+    const newTableButton = document.getElementById('newTable');
+    const savePdfButton = document.getElementById('savePdf');
+    const editOsButton = document.getElementById('editOs');
+    const deleteOsButton = document.getElementById('deleteOs');
+    const toggleTableButton = document.getElementById('toggleTable');
+    const optionsMenuWrap = document.getElementById('optionsMenuWrap');
+    const optionsToggle = document.getElementById('optionsToggle');
+    const optionsMenu = document.getElementById('optionsMenu');
+    const recordStats = document.getElementById('recordStats');
+    const sheetWrap = document.getElementById('sheetWrap');
+    const osInput = document.getElementById('os');
+    const searchInput = document.getElementById('searchOs');
+    const searchButton = document.getElementById('searchButton');
+    const searchMonthInput = document.getElementById('searchMonth');
+    const searchMonthButton = document.getElementById('searchMonthButton');
+    const deleteMonthDataButton = document.getElementById('deleteMonthData');
+    const searchMessage = document.getElementById('searchMessage');
+    const searchResult = document.getElementById('searchResult');
+    const duplicateWarning = document.getElementById('duplicateWarning');
+    const dateInput = document.getElementById('data');
+    const modalDataEntrada = document.getElementById('modalDataEntrada');
+    const inputDataEntrada = document.getElementById('inputDataEntrada');
+    const btnDataEntradaConfirmar = document.getElementById('btnDataEntradaConfirmar');
+    const btnDataEntradaCancelar = document.getElementById('btnDataEntradaCancelar');
+    const modalTaxa = document.getElementById('modalTaxa');
+    const btnTaxa = document.getElementById('btnTaxa');
+    const btnIsento = document.getElementById('btnIsento');
+    const btnOutros = document.getElementById('btnOutros');
+    const outrosInputGroup = document.getElementById('outrosInputGroup');
+    const inputValorOutros = document.getElementById('inputValorOutros');
+    const btnOutrosConfirmar = document.getElementById('btnOutrosConfirmar');
+    const btnOutrosCancelar = document.getElementById('btnOutrosCancelar');
+    const modalValor = document.getElementById('modalValor');
+    const inputValorAprovada = document.getElementById('inputValorAprovada');
+    const btnValorConfirmar = document.getElementById('btnValorConfirmar');
+    const btnValorCancelar = document.getElementById('btnValorCancelar');
+
+    let records = [];
+    let archivedRecords = [];
+    let foundIndex = -1;
+    let editIndex = -1;
+    let backupTimer = null;
+    let saveFileTimer = null;
+    let revision = null;
+    let pendingSave = null;
+    let saveQueue = Promise.resolve(true);
+    let conflict = false;
+    let accessDenied = false;
+    let backupInProgress = false;
+    let backupRequested = false;
+    let backupQueue = Promise.resolve();
+    let entryDateSelection = null;
+    let taxaSelection = null;
+    let outrosValor = 0;
+    let valorSelection = null;
+    let pendingSubmit = false;
+    let canArchiveMonthlyReports = false;
+
+    function todayISO() {
+      const today = new Date();
+      const offset = today.getTimezoneOffset() * 60000;
+      return new Date(today - offset).toISOString().slice(0, 10);
+    }
+
+    function currentMonthKey() {
+      return todayISO().slice(0, 7);
+    }
+
+    function getRecordMonthKey(record) {
+      return String(record?.data || '').slice(0, 7);
+    }
+
+    function archiveKey(record) {
+      return [record.os || '', record.status || 'orcamento']
+        .map((value) => String(value).trim().toUpperCase()).join('|');
+    }
+
+    function archiveRecords(sourceRecords) {
+      const merged = new Map(archivedRecords.map((record) => [archiveKey(record), record]));
+      for (const record of sourceRecords) {
+        if (!record.os || !record.data) continue;
+        const key = archiveKey(record);
+        if (!merged.has(key) || record.data >= merged.get(key).data) merged.set(key, record);
+      }
+      archivedRecords = [...merged.values()];
+    }
+
+    function closePreviousMonthsIfNeeded() {
+      if (!canArchiveMonthlyReports) return false;
+
+      const activeMonth = currentMonthKey();
+      const previousRecords = records.filter((record) => {
+        const monthKey = getRecordMonthKey(record);
+        return monthKey && monthKey < activeMonth;
+      });
+
+      if (previousRecords.length === 0) return false;
+
+      archiveRecords(previousRecords);
+      records = records.filter((record) => {
+        const monthKey = getRecordMonthKey(record);
+        return !monthKey || monthKey >= activeMonth;
+      });
+      foundIndex = -1;
+      editIndex = -1;
+      saveRecordsToStorage();
+      searchMessage.textContent = `${previousRecords.length} O.S de mes anterior foram fechadas no relatorio. Nova tabela iniciada para ${formatMonthLabel(activeMonth)}.`;
+      queueSaveToFile();
+      return true;
+    }
+
+    function loadRecordsFromStorage() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        return Array.isArray(saved) ? saved : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function saveRecordsToStorage() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    }
+
+    function loadTecnicoFromStorage() {
+      return localStorage.getItem(TECNICO_KEY) || '';
+    }
+
+    function saveTecnicoToStorage(value) {
+      localStorage.setItem(TECNICO_KEY, String(value || '').trim().toUpperCase());
+    }
+
+    async function loadFromFile() {
+      try {
+        const response = await fetch(DATA_API, { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+        if (response.status === 401) {
+          accessDenied = true;
+          location.replace('/');
+          return null;
+        }
+        return response.ok ? await response.json() : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function showSyncStatus(message) {
+      syncStatus.textContent = message;
+      syncStatus.hidden = !message;
+      downloadPending.hidden = !message || !pendingSave;
+    }
+
+    function rememberPending() {
+      if (revision === null || !pendingSave) return;
+      localStorage.setItem(PENDING_KEY, JSON.stringify({ revision, data: pendingSave }));
+    }
+
+    function saveToFile() {
+      clearTimeout(saveFileTimer);
+      saveQueue = saveQueue.then(async () => {
+        const data = pendingSave;
+        if (!data) return true;
+        if (conflict) return false;
+        const storedPending = localStorage.getItem(PENDING_KEY);
+
+        try {
+          const headers = { 'Content-Type': 'application/json' };
+          if (revision !== null) headers['If-Match'] = revision;
+          const response = await fetch(DATA_API, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(data),
+            signal: AbortSignal.timeout(10000)
+          });
+          if (response.status === 401) {
+            accessDenied = true;
+            location.replace('/');
+            return false;
+          }
+          if (response.status === 409) {
+            conflict = true;
+            showSyncStatus('Outra sessão alterou os dados. Baixe suas alterações pendentes antes de recarregar.');
+            return false;
+          }
+          if (!response.ok) throw new Error('Falha na sincronização');
+          const saved = await response.json();
+          revision = saved.revision ?? revision;
+          canArchiveMonthlyReports = true;
+
+          if (pendingSave === data) {
+            pendingSave = null;
+            if (localStorage.getItem(PENDING_KEY) === storedPending) localStorage.removeItem(PENDING_KEY);
+          } else {
+            rememberPending();
+          }
+          showSyncStatus('');
+          return true;
+        } catch {
+          showSyncStatus('Alterações pendentes. A sincronização será tentada ao voltar a ficar online ou ao salvar novamente.');
+          return false;
+        }
+      });
+      return saveQueue;
+    }
+
+    function queueSaveToFile() {
+      pendingSave = {
+        writeId: crypto.randomUUID?.(),
+        records: structuredClone(records),
+        archivedRecords: structuredClone(archivedRecords),
+        tecnico: loadTecnicoFromStorage()
+      };
+      rememberPending();
+      if (conflict) {
+        showSyncStatus('Outra sessão alterou os dados. Baixe suas alterações pendentes antes de recarregar.');
+        return;
+      }
+      clearTimeout(saveFileTimer);
+      saveFileTimer = setTimeout(saveToFile, 250);
+    }
+
+    downloadPending.addEventListener('click', () => {
+      if (!pendingSave) return;
+      const url = URL.createObjectURL(new Blob([JSON.stringify(pendingSave, null, 2)], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'controle-producao-alteracoes-pendentes.json';
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      if (conflict && confirm('Baixou o arquivo? Deseja carregar agora a versão atual da nuvem?')) {
+        localStorage.removeItem(PENDING_KEY);
+        pendingSave = null;
+        location.reload();
+      }
+    });
+
+    window.addEventListener('online', () => {
+      if (!conflict) saveToFile();
+    });
+    window.addEventListener('beforeunload', (event) => {
+      if (!pendingSave || revision === null || accessDenied) return;
+      event.preventDefault();
+      event.returnValue = '';
+    });
+    document.querySelectorAll('a[href="index.html"], a[href="relatorio-producao.html"], a[href="/api/backup-pdf"]')
+      .forEach((link) => link.addEventListener('click', async (event) => {
+        if (!pendingSave || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        if (await saveToFile()) location.assign(link.href);
+      }));
+
+    function loadRecords() {
+      return loadRecordsFromStorage();
+    }
+
+    function saveRecords() {
+      saveRecordsToStorage();
+      updateRecordStats();
+      queueDailyBackup();
+      queueSaveToFile();
+    }
+
+    function loadTecnico() {
+      return loadTecnicoFromStorage();
+    }
+
+    function saveTecnico(value) {
+      saveTecnicoToStorage(value);
+      updateSheetFooter(document);
+      queueSaveToFile();
+    }
+
+    async function initData() {
+      const fileData = await loadFromFile();
+      if (accessDenied) return false;
+      let savedPending;
+      try {
+        savedPending = JSON.parse(localStorage.getItem(PENDING_KEY) || 'null');
+      } catch {
+        localStorage.removeItem(PENDING_KEY);
+      }
+      canArchiveMonthlyReports = fileData !== null;
+      revision = fileData?.revision ?? savedPending?.revision ?? null;
+
+      if (revision !== null && savedPending?.data) {
+        revision = savedPending.revision;
+        pendingSave = savedPending.data;
+        records = structuredClone(pendingSave.records);
+        archivedRecords = structuredClone(pendingSave.archivedRecords);
+        saveTecnicoToStorage(pendingSave.tecnico);
+        await saveToFile();
+      } else if (Array.isArray(fileData?.records) && (revision !== null || fileData.records.length > 0)) {
+        records = fileData.records;
+        const activeKeys = new Set(records.map(archiveKey));
+        archivedRecords = (fileData.archivedRecords || []).filter((record) => !activeKeys.has(archiveKey(record)));
+        saveRecordsToStorage();
+        saveTecnicoToStorage(fileData.tecnico);
+      } else {
+        records = loadRecordsFromStorage();
+        archivedRecords = fileData?.archivedRecords || [];
+        if (fileData && records.length > 0) queueSaveToFile();
+      }
+
+      closePreviousMonthsIfNeeded();
+      return fileData !== null || pendingSave !== null || location.port === '3847';
+    }
+
+    function formatCurrency(value) {
+      return value.toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      });
+    }
+
+    function clearTecnico() {
+      localStorage.removeItem(TECNICO_KEY);
+      updateSheetFooter(document);
+      queueSaveToFile();
+    }
+
+    function promptTecnicoIfNeeded() {
+      if (loadTecnico()) return true;
+
+      const name = prompt('Nome do técnico (rodapé da ficha):');
+      if (!name || !String(name).trim()) {
+        searchMessage.textContent = 'Informe o nome do técnico para continuar.';
+        return false;
+      }
+
+      saveTecnico(name);
+      return true;
+    }
+
+    function updateRecordStats() {
+      const total = records.length;
+      const pages = Math.max(1, Math.ceil(total / MAX_ROWS));
+      const pageLabel = total > 0 ? ` — ${pages} página(s) na impressão` : '';
+      recordStats.textContent = `${total} O.S cadastrada${total === 1 ? '' : 's'}${pageLabel}.`;
+    }
+
+    function getPrintDateTimeLabel() {
+      const now = new Date();
+      const date = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+      const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      return `${date}, ${time}`;
+    }
+
+    function getSheetPeriodLabel(dateValue = todayISO()) {
+      const [year, month] = String(dateValue || todayISO()).split('-');
+      const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+      const name = months[Number(month) - 1] || month || '';
+      return `Controle de Produção - ${name} / ${year || ''}`.trim();
+    }
+
+    function updateSheetFooter(root, pageNumber = 1, pageCount = 1, periodDate = todayISO()) {
+      const tecnicoEl = root.querySelector('#footerTecnico');
+      const dateEl = root.querySelector('#footerDate');
+      const printedAtEl = root.querySelector('#sheetPrintedAt');
+      const periodEl = root.querySelector('#sheetPeriod');
+      const pageIndicatorEl = root.querySelector('#sheetPageIndicator');
+      const name = loadTecnico().trim().toUpperCase();
+      if (tecnicoEl) tecnicoEl.textContent = name;
+      if (dateEl) dateEl.textContent = formatDate(todayISO());
+      if (printedAtEl) printedAtEl.textContent = getPrintDateTimeLabel();
+      if (periodEl) periodEl.textContent = getSheetPeriodLabel(periodDate);
+      if (pageIndicatorEl) pageIndicatorEl.textContent = `${pageNumber}/${pageCount}`;
+    }
+
+    function formatDate(value) {
+      if (!value) return '/       /';
+      const [year, month, day] = value.split('-');
+      return `${day}/${month}/${year}`;
+    }
+
+    function getElapsedDays(startDate, endDate) {
+      if (!startDate || !endDate) return null;
+      const start = new Date(`${startDate}T00:00:00`);
+      const end = new Date(`${endDate}T00:00:00`);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+      return Math.round((end - start) / 86400000);
+    }
+
+    function formatElapsedDays(startDate, endDate) {
+      const days = getElapsedDays(startDate, endDate);
+      if (days === null) return '';
+      return `${days} dia${Math.abs(days) === 1 ? '' : 's'}`;
+    }
+
+    function isElapsedOver24Hours(startDate, endDate) {
+      const days = getElapsedDays(startDate, endDate);
+      return days !== null && days > 1;
+    }
+
+    function isBudgetStatus(status) {
+      return String(status || 'orcamento') === 'orcamento';
+    }
+
+    function formatBudgetElapsedDays(record) {
+      if (!record || !isBudgetStatus(record.status)) return '';
+      return formatElapsedDays(record.dataEntrada, record.data);
+    }
+
+    function isBudgetElapsedOver24Hours(record) {
+      return Boolean(record && isBudgetStatus(record.status) && isElapsedOver24Hours(record.dataEntrada, record.data));
+    }
+
+    function resetForm() {
+      form.reset();
+      editIndex = -1;
+      entryDateSelection = null;
+      taxaSelection = null;
+      outrosValor = 0;
+      valorSelection = null;
+      pendingSubmit = false;
+      dateInput.value = todayISO();
+      duplicateWarning.textContent = '';
+      osInput.classList.remove('is-invalid');
+      submitButton.textContent = 'Inserir na tabela';
+      osInput.focus();
+    }
+
+    function openEntradaModal() {
+      inputDataEntrada.value = entryDateSelection || todayISO();
+      modalDataEntrada.classList.add('is-open');
+      inputDataEntrada.focus();
+    }
+
+    function closeEntradaModal() {
+      modalDataEntrada.classList.remove('is-open');
+    }
+
+    function handleEntradaConfirm() {
+      if (!inputDataEntrada.value) {
+        inputDataEntrada.focus();
+        return;
+      }
+      entryDateSelection = inputDataEntrada.value;
+      closeEntradaModal();
+      if (pendingSubmit) {
+        pendingSubmit = false;
+        form.requestSubmit();
+      }
+    }
+
+    btnDataEntradaConfirmar.addEventListener('click', handleEntradaConfirm);
+    btnDataEntradaCancelar.addEventListener('click', () => {
+      entryDateSelection = null;
+      pendingSubmit = false;
+      closeEntradaModal();
+    });
+
+    modalDataEntrada.addEventListener('click', (event) => {
+      if (event.target === modalDataEntrada) {
+        entryDateSelection = null;
+        pendingSubmit = false;
+        closeEntradaModal();
+      }
+    });
+
+    inputDataEntrada.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        handleEntradaConfirm();
+      }
+    });
+
+    function openTaxaModal() {
+      taxaSelection = null;
+      outrosValor = 0;
+      outrosInputGroup.style.display = 'none';
+      modalTaxa.classList.add('is-open');
+    }
+
+    function closeTaxaModal() {
+      modalTaxa.classList.remove('is-open');
+    }
+
+    function handleTaxaChoice(value) {
+      taxaSelection = value;
+      closeTaxaModal();
+      if (pendingSubmit) {
+        form.requestSubmit();
+      }
+    }
+
+    btnTaxa.addEventListener('click', () => handleTaxaChoice('taxa'));
+    btnIsento.addEventListener('click', () => handleTaxaChoice('isento'));
+    btnOutros.addEventListener('click', () => {
+      outrosInputGroup.style.display = 'block';
+      inputValorOutros.value = '0';
+      inputValorOutros.focus();
+      inputValorOutros.select();
+    });
+
+    btnOutrosConfirmar.addEventListener('click', () => {
+      const raw = String(inputValorOutros.value).replace(',', '.').trim();
+      const value = Number(raw);
+      if (!raw || isNaN(value) || value < 0) {
+        inputValorOutros.focus();
+        inputValorOutros.select();
+        return;
+      }
+      outrosValor = value;
+      taxaSelection = 'outros';
+      closeTaxaModal();
+      if (pendingSubmit) {
+        form.requestSubmit();
+      }
+    });
+
+    btnOutrosCancelar.addEventListener('click', () => {
+      outrosInputGroup.style.display = 'none';
+    });
+
+    modalTaxa.addEventListener('click', (event) => {
+      if (event.target === modalTaxa) {
+        taxaSelection = null;
+        pendingSubmit = false;
+        closeTaxaModal();
+      }
+    });
+
+    function openValorModal() {
+      valorSelection = null;
+      inputValorAprovada.value = '0';
+      modalValor.classList.add('is-open');
+      inputValorAprovada.focus();
+      inputValorAprovada.select();
+    }
+
+    function closeValorModal() {
+      modalValor.classList.remove('is-open');
+    }
+
+    function handleValorConfirm() {
+      const raw = String(inputValorAprovada.value).replace(',', '.').trim();
+      const value = Number(raw);
+      if (!raw || isNaN(value) || value < 0) {
+        inputValorAprovada.focus();
+        inputValorAprovada.select();
+        return;
+      }
+      valorSelection = value;
+      closeValorModal();
+      if (pendingSubmit) {
+        form.requestSubmit();
+      }
+    }
+
+    btnValorConfirmar.addEventListener('click', handleValorConfirm);
+    btnValorCancelar.addEventListener('click', () => {
+      valorSelection = null;
+      pendingSubmit = false;
+      closeValorModal();
+    });
+
+    modalValor.addEventListener('click', (event) => {
+      if (event.target === modalValor) {
+        valorSelection = null;
+        pendingSubmit = false;
+        closeValorModal();
+      }
+    });
+
+    inputValorAprovada.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        handleValorConfirm();
+      }
+    });
+
+    function normalizeOS(value) {
+      return String(value || '').trim().toUpperCase();
+    }
+
+    const STATUS_LABELS = {
+      orcamento: 'Orçamento',
+      aprovada: 'Aprovada',
+      garantia: 'Garantia',
+      remoto: 'Acesso remoto'
+    };
+
+    function getStatusLabel(status) {
+      return STATUS_LABELS[status] || status || 'Orçamento';
+    }
+
+    function findOSIndex(value, status = null, ignoredIndex = -1) {
+      const os = normalizeOS(value);
+      if (!os) return -1;
+      return records.findIndex((record, index) => (
+        index !== ignoredIndex
+        && normalizeOS(record.os) === os
+        && (status === null || String(record.status || 'orcamento') === String(status))
+      ));
+    }
+
+    function findAllOSIndices(value) {
+      const os = normalizeOS(value);
+      if (!os) return [];
+      return records.reduce((indices, record, index) => {
+        if (normalizeOS(record.os) === os) indices.push(index);
+        return indices;
+      }, []);
+    }
+
+    function getSelectedStatus() {
+      return form.querySelector('input[name="status"]:checked')?.value || 'orcamento';
+    }
+
+    function describeOSMatches(value) {
+      return findAllOSIndices(value).map((index) => (
+        `${getStatusLabel(records[index].status)} (linha ${index + 1})`
+      )).join(', ');
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function clearSearchResult() {
+      searchResult.innerHTML = '';
+      searchResult.hidden = true;
+    }
+
+    function renderSearchResultEntries(entries) {
+      if (!entries.length) {
+        clearSearchResult();
+        return;
+      }
+
+      searchResult.hidden = false;
+      searchResult.innerHTML = entries.map(({ index, record, source }) => {
+        const originText = source === 'archived'
+          ? `arquivado (${formatMonthLabel(String(record.data || '').slice(0, 7))})`
+          : `linha ${index + 1}`;
+        return `
+        <article class="search-result-card">
+          <div class="search-result-header">
+            <p class="search-result-title">Resultado da pesquisa — ${originText}</p>
+            <button type="button" class="search-result-edit" data-action="edit-os" data-source="${source}" data-index="${index}">Editar</button>
+          </div>
+          <dl class="search-result-grid">
+            <div>
+              <dt>Modelo</dt>
+              <dd>${escapeHtml(record.modelo || '—')}</dd>
+            </div>
+            <div>
+              <dt>Nº de série</dt>
+              <dd>${escapeHtml(record.serie || '—')}</dd>
+            </div>
+            <div>
+              <dt>Nº da O.S</dt>
+              <dd>${escapeHtml(record.os || '—')}</dd>
+            </div>
+            <div>
+              <dt>Tipo da O.S</dt>
+              <dd>${escapeHtml(getStatusLabel(record.status))}${record.status === 'orcamento' ? `<span class="taxa-badge ${record.taxa === 'taxa' ? 'com-taxa' : record.taxa === 'outros' ? 'outros' : 'isento'}">${record.taxa === 'taxa' ? 'Taxa R$ 100' : record.taxa === 'outros' ? 'Outros ' + formatCurrency(Number(record.valor) || 0) : 'Isento'}</span>` : ''}${record.status === 'aprovada' && record.valor ? `<span class="taxa-badge com-taxa">${formatCurrency(Number(record.valor) || 0)}</span>` : ''}</dd>
+            </div>
+            <div>
+              <dt>Entrada</dt>
+              <dd>${escapeHtml(isBudgetStatus(record.status) ? (formatDate(record.dataEntrada) || '—') : '—')}</dd>
+            </div>
+            <div>
+              <dt>Orçamento</dt>
+              <dd>${escapeHtml(formatDate(record.data) || '—')}</dd>
+            </div>
+            <div>
+              <dt>Prazo do orçamento</dt>
+              <dd>${escapeHtml(formatBudgetElapsedDays(record) || '—')}</dd>
+            </div>
+          </dl>
+        </article>
+        `;
+      }).join('');
+    }
+
+    function getOSMatchEntries(value, status = null) {
+      const os = normalizeOS(value);
+      if (!os) return [];
+
+      if (status !== null) {
+        const index = findOSIndex(os, status);
+        return index >= 0 ? [{ index, record: records[index] }] : [];
+      }
+
+      return findAllOSIndices(os).map((index) => ({ index, record: records[index] }));
+    }
+
+    function getEditableOSIndex(value) {
+      const entries = getOSMatchEntries(value);
+      if (entries.length === 0) {
+        return -1;
+      }
+
+      const selectedStatus = getSelectedStatus();
+      const optionsText = entries.map(({ index, record }, optionIndex) => (
+        `${optionIndex + 1} - ${getStatusLabel(record.status)} (linha ${index + 1})`
+      )).join('\n');
+      const selectedEntry = entries.find(({ record }) => String(record.status || 'orcamento') === selectedStatus);
+      const defaultOption = selectedEntry ? entries.indexOf(selectedEntry) + 1 : 1;
+      const answer = prompt(
+        `Escolha o tipo da O.S que deseja editar:\n\n${optionsText}\n\nDigite o numero da opcao ou o tipo da O.S:`,
+        String(defaultOption)
+      );
+
+      if (answer === null) return -2;
+
+      const typedAnswer = normalizeOS(answer);
+      const numericOption = Number.parseInt(typedAnswer, 10);
+      if (Number.isInteger(numericOption) && numericOption >= 1 && numericOption <= entries.length) {
+        return entries[numericOption - 1].index;
+      }
+
+      const statusAliases = {
+        ORCAMENTO: 'orcamento',
+        'ORÇAMENTO': 'orcamento',
+        APROVADA: 'aprovada',
+        GARANTIA: 'garantia',
+        REMOTO: 'remoto',
+        'ACESSO REMOTO': 'remoto',
+        ACESSO: 'remoto'
+      };
+      const requestedStatus = statusAliases[typedAnswer];
+      const statusEntry = requestedStatus
+        ? entries.find(({ record }) => String(record.status || 'orcamento') === requestedStatus)
+        : null;
+
+      return statusEntry ? statusEntry.index : -3;
+    }
+
+    function getAllOSEntries(value, status = null) {
+      const os = normalizeOS(value);
+      if (!os) return [];
+      const entries = [];
+      records.forEach((record, index) => {
+        if (normalizeOS(record.os) === os && (status === null || String(record.status || 'orcamento') === String(status))) {
+          entries.push({ index, record, source: 'active' });
+        }
+      });
+      archivedRecords.forEach((record, index) => {
+        if (normalizeOS(record.os) === os && (status === null || String(record.status || 'orcamento') === String(status))) {
+          entries.push({ index, record, source: 'archived' });
+        }
+      });
+      return entries;
+    }
+
+    function chooseOSEntry(value) {
+      const entries = getAllOSEntries(value);
+      if (entries.length === 0) {
+        return { code: -1 };
+      }
+
+      if (entries.length === 1) {
+        return entries[0];
+      }
+
+      const selectedStatus = getSelectedStatus();
+      const optionsText = entries.map((entry, optionIndex) => {
+        const sourceLabel = entry.source === 'archived' ? ' [arquivado]' : '';
+        return `${optionIndex + 1} - ${getStatusLabel(entry.record.status)}${sourceLabel}`;
+      }).join('\n');
+      const selectedEntry = entries.find((entry) => String(entry.record.status || 'orcamento') === selectedStatus);
+      const defaultOption = selectedEntry ? entries.indexOf(selectedEntry) + 1 : 1;
+      const answer = prompt(
+        `Escolha o tipo da O.S:\n\n${optionsText}\n\nDigite o numero da opcao ou o tipo da O.S:`,
+        String(defaultOption)
+      );
+
+      if (answer === null) {
+        return { code: -2 };
+      }
+
+      const typedAnswer = normalizeOS(answer);
+      const numericOption = Number.parseInt(typedAnswer, 10);
+      if (Number.isInteger(numericOption) && numericOption >= 1 && numericOption <= entries.length) {
+        return entries[numericOption - 1];
+      }
+
+      const statusAliases = {
+        ORCAMENTO: 'orcamento',
+        'ORÇAMENTO': 'orcamento',
+        APROVADA: 'aprovada',
+        GARANTIA: 'garantia',
+        REMOTO: 'remoto',
+        'ACESSO REMOTO': 'remoto',
+        ACESSO: 'remoto'
+      };
+      const requestedStatus = statusAliases[typedAnswer];
+      const statusEntry = requestedStatus
+        ? entries.find((entry) => String(entry.record.status || 'orcamento') === requestedStatus)
+        : null;
+
+      return statusEntry || { code: -3 };
+    }
+
+    function findDuplicateOSIndex(value, status, ignoredIndex = -1) {
+      const os = normalizeOS(value);
+      const selectedStatus = String(status || 'orcamento');
+      if (!os) return -1;
+      return records.findIndex((record, index) => (
+        index !== ignoredIndex
+        && normalizeOS(record.os) === os
+        && String(record.status || 'orcamento') === selectedStatus
+      ));
+    }
+
+    function hasArchivedDuplicate(value, status) {
+      const os = normalizeOS(value);
+      const selectedStatus = String(status || 'orcamento');
+      if (!os || editIndex >= 0) return false;
+      return archivedRecords.some((record) => (
+        normalizeOS(record.os) === os
+        && String(record.status || 'orcamento') === selectedStatus
+      ));
+    }
+
+    function updateDuplicateWarning() {
+      const typedOS = normalizeOS(osInput.value);
+      const duplicateIndex = findDuplicateOSIndex(typedOS, getSelectedStatus(), editIndex);
+      const archivedDuplicate = hasArchivedDuplicate(typedOS, getSelectedStatus());
+      const hasDuplicate = duplicateIndex >= 0 || archivedDuplicate;
+      duplicateWarning.textContent = duplicateIndex >= 0
+        ? `Atenção: a O.S ${typedOS} já está cadastrada com este mesmo tipo na linha ${duplicateIndex + 1}.`
+        : archivedDuplicate
+          ? `Atenção: a O.S ${typedOS} já foi cadastrada com este mesmo tipo em mês anterior.`
+          : '';
+      osInput.classList.toggle('is-invalid', hasDuplicate);
+      return hasDuplicate;
+    }
+
+    function saveAsPdf() {
+      if (records.length === 0) {
+        alert('Não há O.S cadastradas para salvar em PDF.');
+        return;
+      }
+
+      const tecnico = (loadTecnico() || 'controle').toLowerCase().replace(/\s+/g, '-');
+      const fileName = `controle-producao-${tecnico}-${todayISO()}`;
+      openTableWindow(true, fileName);
+      searchMessage.textContent = 'Na janela de impressão, escolha "Salvar como PDF" ou "Microsoft Print to PDF".';
+    }
+
+    async function createNewTable() {
+      const hasRecords = records.length > 0;
+
+      if (hasRecords) {
+        const shouldCreate = confirm(`Criar nova tabela?\n\nAntes de limpar, as ${records.length} O.S atuais serão salvas em Backups PDF.\n\nDepois disso, sera solicitado o nome do tecnico novamente.`);
+
+        if (!shouldCreate) {
+          return;
+        }
+
+        newTableButton.disabled = true;
+        app.inert = true;
+        newTableButton.textContent = 'Salvando PDF...';
+        searchMessage.textContent = 'Salvando a tabela atual em PDF antes de criar uma nova tabela...';
+
+        try {
+          if (!await saveToFile()) throw new Error('Sincronize os dados antes de criar uma nova tabela.');
+          await saveCurrentTableBackup(getNewTableBackupFilename());
+          alert('Tabela salva em Backups PDF.');
+        } catch (error) {
+          alert('Nao foi possivel salvar a tabela em PDF. A nova tabela nao sera criada para evitar perda de dados.');
+          searchMessage.textContent = error.message || 'Falha ao salvar o PDF antes de criar uma nova tabela.';
+          newTableButton.disabled = false;
+          app.inert = false;
+          newTableButton.textContent = 'Criar nova tabela';
+          return;
+        }
+
+        newTableButton.disabled = false;
+        app.inert = false;
+        newTableButton.textContent = 'Criar nova tabela';
+        archiveRecords(records);
+        records = [];
+        foundIndex = -1;
+        editIndex = -1;
+        saveRecords();
+        clearTecnico();
+        searchInput.value = '';
+        resetForm();
+        renderTable();
+        updateDuplicateWarning();
+        promptTecnicoIfNeeded();
+        searchMessage.textContent = 'Nova tabela criada. A tabela anterior está em Backups PDF.';
+        return;
+      }
+      const message = hasRecords
+        ? `Criar nova tabela? As ${records.length} O.S atuais serão removidas e será solicitado o nome do técnico novamente.`
+        : 'Criar nova tabela? O nome do técnico será solicitado novamente.';
+
+      if (!confirm(message)) {
+        return;
+      }
+
+      records = [];
+      foundIndex = -1;
+      editIndex = -1;
+      saveRecords();
+      clearTecnico();
+      searchInput.value = '';
+      resetForm();
+      renderTable();
+      updateDuplicateWarning();
+      promptTecnicoIfNeeded();
+      searchMessage.textContent = 'Nova tabela criada.';
+    }
+
+    function blockDuplicateOSAdvance(showAlert = true) {
+      const hasDuplicate = updateDuplicateWarning();
+
+      if (hasDuplicate) {
+        if (showAlert) {
+          alert('Esta O.S já está cadastrada com este mesmo tipo. Digite outro número ou selecione outro tipo antes de continuar.');
+        }
+        osInput.focus();
+        osInput.select();
+        return true;
+      }
+
+      return false;
+    }
+
+    function buildTablePagesHtml(sourceRecords = records) {
+      renderTable();
+
+      const pageCount = Math.max(1, Math.ceil(sourceRecords.length / MAX_ROWS));
+      const tablePages = [];
+
+      for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+        const pageStart = pageIndex * MAX_ROWS;
+        const tableContent = sheetWrap.cloneNode(true);
+        const pageBody = tableContent.querySelector('tbody');
+        const sideNumbers = tableContent.querySelectorAll('.side-number');
+
+        tableContent.removeAttribute('id');
+        tableContent.classList.remove('is-hidden');
+
+        if (pageBody) {
+          pageBody.removeAttribute('id');
+          fillTableBody(pageBody, pageStart, sourceRecords);
+        }
+
+        if (sideNumbers[0]) sideNumbers[0].textContent = String(pageStart + 1);
+        if (sideNumbers[1]) sideNumbers[1].textContent = String(pageStart + MAX_ROWS);
+        updateSheetFooter(tableContent, pageIndex + 1, pageCount, sourceRecords[pageStart]?.data || todayISO());
+
+        tablePages.push(tableContent.outerHTML);
+      }
+
+      return tablePages;
+    }
+
+    function buildTableDocumentHtml(shouldPrint = false, documentTitle = 'Tabela - Controle de Produção', sourceRecords = records) {
+      const styleText = document.querySelector('style').textContent;
+      const tablePages = buildTablePagesHtml(sourceRecords);
+
+      return `<!doctype html>
+        <html lang="pt-BR">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>${documentTitle}</title>
+          <style>
+            ${styleText}
+            body { background: #fff; }
+            main {
+              min-height: 29.7cm;
+              display: flex;
+              flex-direction: column;
+              justify-content: flex-start;
+              align-items: center;
+              gap: 0;
+              padding: 0;
+            }
+            .sheet-wrap {
+              display: block;
+              overflow: visible;
+            }
+            @media print {
+              @page {
+                size: 21cm 29.7cm;
+                margin: 10mm;
+              }
+
+              html,
+              body {
+                width: auto;
+                min-height: auto;
+                margin: 0;
+              }
+
+              .sheet-wrap {
+                page-break-after: always;
+                break-after: page;
+              }
+              .sheet-wrap:last-child {
+                page-break-after: auto;
+                break-after: auto;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <main>${tablePages.join('')}</main>
+          <script>
+            ${shouldPrint ? 'window.addEventListener("load", () => window.print());' : ''}
+          <\/script>
+        </body>
+        </html>`;
+    }
+
+    function getBackupFilename() {
+      const tecnico = (loadTecnico() || 'controle').toLowerCase().replace(/\s+/g, '-');
+      return `backup-controle-producao-${tecnico}-${todayISO()}`;
+    }
+
+    function getNewTableBackupFilename() {
+      const tecnico = (loadTecnico() || 'controle').toLowerCase().replace(/\s+/g, '-');
+      const timestamp = new Date().toISOString().replace(/[T:.Z]/g, '-').replace(/-$/, '');
+      return `tabela-controle-producao-${tecnico}-${timestamp}`;
+    }
+
+    function saveCurrentTableBackup(filename) {
+      const html = buildTableDocumentHtml(false, filename);
+      const task = backupQueue.then(async () => {
+        const response = await fetch(BACKUP_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ html, filename })
+        });
+        if (response.status === 401) {
+          accessDenied = true;
+          location.replace('/');
+        }
+        if (!response.ok) throw new Error('Não foi possível salvar a tabela em PDF.');
+        return response.json();
+      });
+      backupQueue = task.catch(() => {});
+      return task;
+    }
+
+    async function runDailyBackup() {
+      if (records.length === 0) return;
+      if (backupInProgress) {
+        backupRequested = true;
+        return;
+      }
+
+      const today = todayISO();
+      const filename = getBackupFilename();
+
+      backupInProgress = true;
+      try {
+        if (!await saveToFile()) return;
+        await saveCurrentTableBackup(filename);
+
+        const wasNewBackup = localStorage.getItem(BACKUP_KEY) !== today;
+        localStorage.setItem(BACKUP_KEY, today);
+
+        if (wasNewBackup) {
+          searchMessage.textContent = 'Backup diário disponível em Backups PDF.';
+        }
+      } catch {
+        searchMessage.textContent = 'Não foi possível gerar o backup PDF diário.';
+      } finally {
+        backupInProgress = false;
+        if (backupRequested) {
+          backupRequested = false;
+          queueDailyBackup();
+        }
+      }
+    }
+
+    function queueDailyBackup() {
+      clearTimeout(backupTimer);
+      backupTimer = setTimeout(runDailyBackup, 1500);
+    }
+
+    function openTableWindow(shouldPrint = false, documentTitle = 'Tabela - Controle de Produção', sourceRecords = records) {
+      const tableWindow = window.open('', '_blank');
+
+      if (!tableWindow) {
+        alert('Não foi possível abrir a tabela. Verifique se o navegador bloqueou a nova página.');
+        return;
+      }
+
+      tableWindow.document.open();
+      tableWindow.document.write(buildTableDocumentHtml(shouldPrint, documentTitle, sourceRecords));
+      tableWindow.document.close();
+    }
+
+    function fillFormForEdit(index) {
+      const record = records[index];
+      if (!record) return;
+
+      editIndex = index;
+      foundIndex = index;
+      osInput.value = record.os || '';
+      document.getElementById('modelo').value = record.modelo || '';
+      document.getElementById('serie').value = record.serie || '';
+      entryDateSelection = record.status === 'orcamento' ? (record.dataEntrada || todayISO()) : null;
+      dateInput.value = record.data || todayISO();
+
+      const statusInput = form.querySelector(`input[name="status"][value="${record.status || 'orcamento'}"]`);
+      if (statusInput) statusInput.checked = true;
+
+      taxaSelection = record.status === 'orcamento' ? (record.taxa || 'isento') : null;
+      outrosValor = record.status === 'orcamento' && record.taxa === 'outros' ? (Number(record.valor) || 0) : 0;
+      valorSelection = record.status === 'aprovada' ? (Number(record.valor) || 0) : null;
+
+      submitButton.textContent = 'Salvar edição';
+      duplicateWarning.textContent = '';
+      osInput.classList.remove('is-invalid');
+      renderTable();
+      osInput.focus();
+      searchMessage.textContent = `Editando O.S ${record.os} (${getStatusLabel(record.status)}), linha ${index + 1}.`;
+    }
+
+    function startEditingChoice(chosen, requestedOS = '') {
+      if (!chosen || chosen.code === -1) {
+        const os = normalizeOS(requestedOS);
+        if (os && foundIndex >= 0 && normalizeOS(records[foundIndex]?.os) === os) {
+          fillFormForEdit(foundIndex);
+          return true;
+        }
+        searchMessage.textContent = os
+          ? `O.S ${os} não encontrada para edição.`
+          : 'Digite a O.S no campo de pesquisa ou no campo Número da O.S para editar.';
+        return false;
+      }
+
+      if (chosen.code === -2) {
+        searchMessage.textContent = 'Edição cancelada.';
+        return false;
+      }
+
+      if (chosen.code === -3) {
+        searchMessage.textContent = 'Opção inválida. Clique em Editar O.S novamente e escolha um tipo ou número da lista.';
+        return false;
+      }
+
+      let index = chosen.index;
+      let restoredFromArchive = false;
+
+      if (chosen.source === 'archived') {
+        const restored = archivedRecords.splice(chosen.index, 1)[0];
+        if (!restored) {
+          searchMessage.textContent = 'Não foi possível restaurar essa O.S do arquivo.';
+          return false;
+        }
+        records.push(restored);
+        index = records.length - 1;
+        foundIndex = index;
+        restoredFromArchive = true;
+        saveRecords();
+        renderSearchResultEntries(getAllOSEntries(restored.os));
+      }
+
+      if (!records[index]) {
+        searchMessage.textContent = 'Não foi possível localizar essa O.S para edição.';
+        return false;
+      }
+
+      fillFormForEdit(index);
+
+      if (restoredFromArchive) {
+        searchMessage.textContent = `O.S ${records[index].os} restaurada do arquivo para a tabela (linha ${index + 1}). Agora é possível editá-la.`;
+      }
+
+      closeOptionsMenu();
+      return true;
+    }
+
+    function fillTableBody(targetBody, pageStart = 0, sourceRecords = records) {
+      targetBody.innerHTML = '';
+
+      for (let index = 0; index < MAX_ROWS; index += 1) {
+        const recordIndex = pageStart + index;
+        const record = sourceRecords[recordIndex];
+        const row = document.createElement('tr');
+        if (recordIndex === foundIndex) {
+          row.classList.add('found-row');
+        }
+        if (record?.status === 'orcamento' && record?.taxa === 'isento') {
+          row.classList.add('row-isento');
+        }
+        const cells = [
+          { text: record?.modelo || '', title: record?.modelo || '' },
+          { text: record?.serie || '', title: record?.serie || '' },
+          { text: record?.os || '', title: record?.os || '' },
+          { text: record?.status === 'orcamento' ? 'X' : '', className: 'orcamento check' },
+          { text: record?.status === 'aprovada' ? 'X' : '', className: 'aprovada check' },
+          { text: record?.status === 'garantia' ? 'X' : '', className: 'garantia check' },
+          { text: record?.status === 'remoto' ? 'X' : '', className: 'remoto check' },
+          {
+            text: record ? formatDate(record.data) : '',
+            className: record && record.data ? '' : 'date-empty'
+          },
+          {
+            text: formatBudgetElapsedDays(record),
+            title: formatBudgetElapsedDays(record),
+            className: isBudgetElapsedOver24Hours(record) ? 'elapsed-overdue' : ''
+          }
+        ];
+
+        cells.forEach((cell) => {
+          const td = document.createElement('td');
+          td.textContent = cell.text;
+          td.className = cell.className || '';
+          if (cell.title) td.title = cell.title;
+          row.appendChild(td);
+        });
+
+        targetBody.appendChild(row);
+      }
+    }
+
+    function renderTable() {
+      const visibleIndex = foundIndex >= 0 ? foundIndex : Math.max(records.length - 1, 0);
+      const pageStart = Math.floor(visibleIndex / MAX_ROWS) * MAX_ROWS;
+      const pageCount = Math.max(1, Math.ceil(records.length / MAX_ROWS));
+      const pageNumber = Math.floor(pageStart / MAX_ROWS) + 1;
+      fillTableBody(tableBody, pageStart);
+      updateSheetFooter(document, pageNumber, pageCount, records[pageStart]?.data || todayISO());
+    }
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+
+      const formData = new FormData(form);
+      const os = normalizeOS(formData.get('os'));
+      const status = String(formData.get('status') || 'orcamento');
+
+      if (status === 'orcamento' && !pendingSubmit && entryDateSelection === null) {
+        pendingSubmit = true;
+        openEntradaModal();
+        return;
+      }
+
+      if (status === 'orcamento' && !pendingSubmit && taxaSelection === null) {
+        pendingSubmit = true;
+        openTaxaModal();
+        return;
+      }
+
+      if (status === 'aprovada' && !pendingSubmit && valorSelection === null) {
+        pendingSubmit = true;
+        openValorModal();
+        return;
+      }
+
+      pendingSubmit = false;
+
+      if (findDuplicateOSIndex(os, status, editIndex) >= 0 || hasArchivedDuplicate(os, status)) {
+        alert(`A O.S ${os} já está cadastrada com este mesmo tipo. Verifique antes de inserir novamente.`);
+        updateDuplicateWarning();
+        return;
+      }
+
+      const record = {
+        modelo: String(formData.get('modelo') || '').trim().toUpperCase(),
+        serie: String(formData.get('serie') || '').trim().toUpperCase(),
+        os,
+        dataEntrada: status === 'orcamento' ? (entryDateSelection || '') : '',
+        data: String(formData.get('data') || ''),
+        status,
+        taxa: status === 'orcamento' ? (taxaSelection || 'isento') : null,
+        valor: status === 'aprovada' ? (valorSelection || 0) : (taxaSelection === 'outros' ? (outrosValor || 0) : 0)
+      };
+
+      if (editIndex >= 0) {
+        records[editIndex] = record;
+        foundIndex = editIndex;
+        searchMessage.textContent = `O.S ${os} atualizada na linha ${editIndex + 1}.`;
+      } else {
+        records.push(record);
+        foundIndex = records.length - 1;
+      }
+
+      saveRecords();
+      closePreviousMonthsIfNeeded();
+      renderTable();
+      resetForm();
+    });
+
+    clearFormButton.addEventListener('click', resetForm);
+
+    function setOptionsMenuOpen(isOpen) {
+      optionsMenuWrap.classList.toggle('is-open', isOpen);
+      optionsToggle.setAttribute('aria-expanded', String(isOpen));
+      optionsMenu.hidden = !isOpen;
+    }
+
+    function closeOptionsMenu() {
+      setOptionsMenuOpen(false);
+    }
+
+    optionsToggle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      setOptionsMenuOpen(optionsMenu.hidden);
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!optionsMenuWrap.contains(event.target)) {
+        closeOptionsMenu();
+      }
+    });
+
+    optionsMenu.querySelectorAll('button').forEach((button) => {
+      if (button.closest('.search-box')) return;
+      button.addEventListener('click', closeOptionsMenu);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeOptionsMenu();
+    });
+
+    ['modelo', 'serie', 'os'].forEach((fieldId) => {
+      document.getElementById(fieldId).addEventListener('input', (event) => {
+        const start = event.target.selectionStart;
+        const end = event.target.selectionEnd;
+        event.target.value = event.target.value.toUpperCase();
+        event.target.setSelectionRange(start, end);
+        if (fieldId === 'os') updateDuplicateWarning();
+      });
+    });
+
+    osInput.addEventListener('keydown', (event) => {
+      if ((event.key === 'Tab' || event.key === 'Enter') && blockDuplicateOSAdvance()) {
+        event.preventDefault();
+      }
+    });
+
+    osInput.addEventListener('blur', () => {
+      if (findDuplicateOSIndex(osInput.value, getSelectedStatus(), editIndex) >= 0) {
+        setTimeout(() => blockDuplicateOSAdvance(false), 0);
+      }
+    });
+
+    document.getElementById('modelo').addEventListener('focus', () => {
+      blockDuplicateOSAdvance(false);
+    });
+
+    form.querySelectorAll('input[name="status"]').forEach((statusInput) => {
+      statusInput.addEventListener('change', () => {
+        updateDuplicateWarning();
+      });
+    });
+
+    searchInput.addEventListener('input', (event) => {
+      const start = event.target.selectionStart;
+      const end = event.target.selectionEnd;
+      event.target.value = event.target.value.toUpperCase();
+      event.target.setSelectionRange(start, end);
+    });
+
+    searchButton.addEventListener('click', () => {
+      const searchedOS = normalizeOS(searchInput.value);
+
+      if (!searchedOS) {
+        searchMessage.textContent = 'Digite um número de O.S para pesquisar.';
+        clearSearchResult();
+        foundIndex = -1;
+        renderTable();
+        return;
+      }
+
+      const matches = getAllOSEntries(searchedOS);
+
+      if (matches.length === 0) {
+        searchMessage.textContent = `O.S ${searchedOS} não encontrada.`;
+        clearSearchResult();
+        foundIndex = -1;
+        renderTable();
+        return;
+      }
+
+      const activeMatches = matches.filter((entry) => entry.source === 'active');
+      const archivedMatches = matches.filter((entry) => entry.source === 'archived');
+
+      foundIndex = activeMatches.length > 0 ? activeMatches[0].index : -1;
+      renderTable();
+
+      const totalText = `${matches.length} registro${matches.length === 1 ? '' : 's'} encontrado${matches.length === 1 ? '' : 's'} para a O.S ${searchedOS}.`;
+      const archiveText = archivedMatches.length > 0 ? ` (${archivedMatches.length} no arquivo)` : '';
+      searchMessage.textContent = totalText + archiveText;
+
+      renderSearchResultEntries(matches);
+      if (activeMatches.length > 0) {
+        openTableWindow(false);
+      }
+    });
+
+    searchInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        searchButton.click();
+      }
+    });
+
+    searchResult.addEventListener('click', (event) => {
+      if (!(event.target instanceof Element)) return;
+      const editButton = event.target.closest('button[data-action="edit-os"]');
+      if (!editButton) return;
+
+      const index = Number.parseInt(editButton.dataset.index, 10);
+      const source = editButton.dataset.source === 'archived' ? 'archived' : 'active';
+      const sourceRecords = source === 'archived' ? archivedRecords : records;
+      const record = sourceRecords[index];
+
+      if (!record) {
+        searchMessage.textContent = 'Não foi possível localizar essa O.S para edição.';
+        return;
+      }
+
+      startEditingChoice({ index, record, source }, record.os);
+    });
+
+    function formatMonthLabel(value) {
+      const [year, month] = String(value || '').split('-');
+      if (!year || !month) return value || '';
+      const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+      const name = months[Number(month) - 1] || month;
+      return `${name} de ${year}`;
+    }
+
+    function getMonthMatchEntries(monthValue) {
+      return records.reduce((entries, record, index) => {
+        if (String(record.data || '').slice(0, 7) === monthValue) {
+          entries.push({ index, record });
+        }
+        return entries;
+      }, []);
+    }
+
+    function getAllMonthEntries(monthValue) {
+      const entries = [];
+      records.forEach((record, index) => {
+        if (getRecordMonthKey(record) === monthValue) {
+          entries.push({ index, record, source: 'active' });
+        }
+      });
+      archivedRecords.forEach((record, index) => {
+        if (getRecordMonthKey(record) === monthValue) {
+          entries.push({ index, record, source: 'archived' });
+        }
+      });
+      return entries;
+    }
+
+    searchMonthButton.addEventListener('click', () => {
+      const monthValue = searchMonthInput.value;
+
+      if (!monthValue) {
+        searchMessage.textContent = 'Selecione um mês para filtrar.';
+        clearSearchResult();
+        foundIndex = -1;
+        renderTable();
+        return;
+      }
+
+      const matches = getMonthMatchEntries(monthValue);
+      const monthLabel = formatMonthLabel(monthValue);
+
+      if (matches.length === 0) {
+        searchMessage.textContent = `Nenhuma O.S encontrada em ${monthLabel}.`;
+        clearSearchResult();
+        foundIndex = -1;
+        renderTable();
+        return;
+      }
+
+      foundIndex = matches[0].index;
+      renderTable();
+      searchMessage.textContent = `${matches.length} O.S encontrada${matches.length === 1 ? '' : 's'} em ${monthLabel}.`;
+      renderSearchResultEntries(matches);
+    });
+
+    searchMonthInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        searchMonthButton.click();
+      }
+    });
+
+    deleteMonthDataButton.addEventListener('click', async () => {
+      const monthValue = searchMonthInput.value;
+
+      if (!monthValue) {
+        searchMessage.textContent = 'Selecione um mês para apagar os dados.';
+        clearSearchResult();
+        return;
+      }
+
+      const monthLabel = formatMonthLabel(monthValue);
+      const matches = getAllMonthEntries(monthValue);
+
+      if (matches.length === 0) {
+        searchMessage.textContent = `Nenhum dado gravado em ${monthLabel} para apagar.`;
+        clearSearchResult();
+        return;
+      }
+
+      const activeCount = matches.filter((entry) => entry.source === 'active').length;
+      const archivedCount = matches.length - activeCount;
+      const confirmDelete = confirm(
+        `Apagar todos os dados de ${monthLabel}?\n\n` +
+        `Tabela atual: ${activeCount} registro(s)\n` +
+        `Relatório/histórico: ${archivedCount} registro(s)\n\n` +
+        'Essa ação remove os dados desse mês das tabelas e do relatório.'
+      );
+
+      if (!confirmDelete) {
+        searchMessage.textContent = 'Exclusão por mês cancelada.';
+        return;
+      }
+
+      records = records.filter((record) => getRecordMonthKey(record) !== monthValue);
+      archivedRecords = archivedRecords.filter((record) => getRecordMonthKey(record) !== monthValue);
+      foundIndex = -1;
+      editIndex = -1;
+      resetForm();
+      deleteMonthDataButton.disabled = true;
+      saveRecords();
+      const saved = await saveToFile();
+      renderTable();
+      updateDuplicateWarning();
+      clearSearchResult();
+      deleteMonthDataButton.disabled = false;
+
+      searchMessage.textContent = saved
+        ? `${matches.length} registro(s) de ${monthLabel} apagado(s) das tabelas e do relatório.`
+        : `Exclusão de ${monthLabel} aguardando sincronização.`;
+    });
+
+    function getTableMonthChoice() {
+      const defaultMonth = searchMonthInput.value || todayISO().slice(0, 7);
+      const answer = prompt('Digite o mes da tabela que deseja mostrar no formato AAAA-MM.\nDeixe em branco para mostrar todas as O.S.', defaultMonth);
+      return answer === null ? null : String(answer || '').trim();
+    }
+
+    if (toggleTableButton) {
+      toggleTableButton.addEventListener('click', () => {
+        const monthValue = getTableMonthChoice();
+        if (monthValue === null) {
+          searchMessage.textContent = 'Visualizacao da tabela cancelada.';
+          return;
+        }
+
+        if (!monthValue) {
+          openTableWindow(false);
+          searchMessage.textContent = 'Tabela completa aberta.';
+          return;
+        }
+
+        if (!/^\d{4}-\d{2}$/.test(monthValue)) {
+          searchMessage.textContent = 'Mes invalido. Use o formato AAAA-MM, por exemplo 2026-08.';
+          return;
+        }
+
+        const monthRecords = records.filter((record) => getRecordMonthKey(record) === monthValue);
+        const monthLabel = formatMonthLabel(monthValue);
+
+        if (monthRecords.length === 0) {
+          searchMessage.textContent = `Nenhuma O.S encontrada em ${monthLabel}.`;
+          return;
+        }
+
+        searchMonthInput.value = monthValue;
+        openTableWindow(false, `Tabela - ${monthLabel}`, monthRecords);
+        searchMessage.textContent = `Tabela de ${monthLabel} aberta com ${monthRecords.length} O.S.`;
+      });
+    }
+
+    printButton.addEventListener('click', () => {
+      openTableWindow(true);
+    });
+
+    newTableButton.addEventListener('click', createNewTable);
+
+    savePdfButton.addEventListener('click', saveAsPdf);
+
+    editOsButton.addEventListener('click', () => {
+      const requestedOS = normalizeOS(osInput.value || searchInput.value);
+
+      if (!requestedOS) {
+        searchMessage.textContent = 'Digite a O.S no campo de pesquisa ou no campo Número da O.S para editar.';
+        return;
+      }
+
+      const chosen = chooseOSEntry(requestedOS);
+      startEditingChoice(chosen, requestedOS);
+    });
+
+    deleteOsButton.addEventListener('click', () => {
+      const requestedOS = normalizeOS(searchInput.value || osInput.value);
+
+      if (!requestedOS) {
+        searchMessage.textContent = 'Digite a O.S no campo de pesquisa para excluir.';
+        return;
+      }
+
+      const chosen = chooseOSEntry(requestedOS);
+
+      if (chosen.code === -2) {
+        searchMessage.textContent = 'Exclusão cancelada.';
+        return;
+      }
+
+      if (chosen.code === -3) {
+        searchMessage.textContent = 'Opção inválida. Clique em "Excluir O.S" novamente e escolha um tipo ou número da lista.';
+        return;
+      }
+
+      if (chosen.code === -1) {
+        searchMessage.textContent = `O.S ${requestedOS} não encontrada para exclusão.`;
+        return;
+      }
+
+      const record = chosen.record;
+      const sourceLabel = chosen.source === 'archived' ? 'arquivo (histórico)' : 'tabela';
+      const confirmDelete = confirm(
+        `Excluir a O.S ${record.os}?\n\n` +
+        `Tipo: ${getStatusLabel(record.status)}\n` +
+        `Modelo: ${record.modelo || '—'}\n` +
+        `Série: ${record.serie || '—'}\n` +
+        `Data: ${formatDate(record.data) || '—'}\n\n` +
+        `Origem: ${sourceLabel}\n` +
+        `Esta O.S será removida também do relatório.`
+      );
+
+      if (!confirmDelete) {
+        searchMessage.textContent = 'Exclusão cancelada.';
+        return;
+      }
+
+      const osNorm = normalizeOS(record.os);
+      const statusNorm = String(record.status || 'orcamento');
+      const matchesDeleted = (entry) => (
+        normalizeOS(entry.os) === osNorm
+        && String(entry.status || 'orcamento') === statusNorm
+      );
+
+      const beforeTotal = records.length + archivedRecords.length;
+      records = records.filter((entry) => !matchesDeleted(entry));
+      archivedRecords = archivedRecords.filter((entry) => !matchesDeleted(entry));
+      const removedCount = beforeTotal - (records.length + archivedRecords.length);
+
+      foundIndex = -1;
+      if (editIndex >= 0) {
+        editIndex = -1;
+        resetForm();
+      }
+
+      saveRecords();
+      renderTable();
+      updateDuplicateWarning();
+
+      searchMessage.textContent = removedCount > 1
+        ? `O.S ${record.os} excluída da tabela e do relatório (${removedCount} registro(s) removidos).`
+        : `O.S ${record.os} excluída da tabela e do relatório.`;
+    });
+
+    clearSpecificFieldButton.addEventListener('click', () => {
+      const requestedOS = normalizeOS(searchInput.value || osInput.value);
+
+      if (!requestedOS) {
+        searchMessage.textContent = 'Digite a O.S no campo de pesquisa para limpar um campo.';
+        return;
+      }
+
+      const chosen = chooseOSEntry(requestedOS);
+
+      if (chosen.code === -2) {
+        searchMessage.textContent = 'Operação cancelada.';
+        return;
+      }
+
+      if (chosen.code === -3) {
+        searchMessage.textContent = 'Opção inválida. Clique em "Limpar campo específico" novamente e escolha um tipo ou número da lista.';
+        return;
+      }
+
+      if (chosen.code === -1) {
+        searchMessage.textContent = `O.S ${requestedOS} não encontrada.`;
+        return;
+      }
+
+      const wasArchived = chosen.source === 'archived';
+      const fieldAnswer = prompt(
+        'Qual campo deseja limpar?\n\n' +
+        '1 - Modelo\n' +
+        '2 - Número de série\n' +
+        '3 - Data de entrada\n' +
+        '4 - Data do orçamento\n\n' +
+        'Digite o número da opção:',
+        '1'
+      );
+
+      if (fieldAnswer === null) {
+        searchMessage.textContent = 'Operação cancelada.';
+        return;
+      }
+
+      const fieldAliases = {
+        '1': 'modelo',
+        MODELO: 'modelo',
+        '2': 'serie',
+        SERIE: 'serie',
+        'SÉRIE': 'serie',
+        'NUMERO DE SERIE': 'serie',
+        'Nº DE SÉRIE': 'serie',
+        '3': 'dataEntrada',
+        'DATA DE ENTRADA': 'dataEntrada',
+        ENTRADA: 'dataEntrada',
+        '4': 'data',
+        DATA: 'data',
+        ORCAMENTO: 'data',
+        'ORÇAMENTO': 'data',
+        'DATA DO ORCAMENTO': 'data',
+        'DATA DO ORÇAMENTO': 'data'
+      };
+      const field = fieldAliases[String(fieldAnswer).trim().toUpperCase()];
+
+      if (!field) {
+        searchMessage.textContent = 'Opção inválida. Clique em "Limpar campo específico" novamente e digite 1, 2, 3 ou 4.';
+        return;
+      }
+
+      const fieldLabels = {
+        modelo: 'Modelo',
+        serie: 'Número de série',
+        dataEntrada: 'Data de entrada',
+        data: 'Data do orçamento'
+      };
+      const record = chosen.record;
+
+      if (!record[field]) {
+        searchMessage.textContent = `O campo ${fieldLabels[field]} da O.S ${record.os} já está vazio.`;
+        return;
+      }
+
+      let recordIndex = chosen.index;
+      if (wasArchived) {
+        archivedRecords.splice(chosen.index, 1);
+        records.push(record);
+        recordIndex = records.length - 1;
+        foundIndex = recordIndex;
+      }
+
+      const valueLabel = field === 'data' || field === 'dataEntrada'
+        ? (formatDate(record[field]) || '—')
+        : (record[field] || '—');
+
+      const confirmClear = confirm(
+        `Limpar o campo ${fieldLabels[field]} da O.S ${record.os}?\n\n` +
+        `${wasArchived ? 'Origem: arquivo\n' : `Linha: ${recordIndex + 1}\n`}` +
+        `Tipo: ${getStatusLabel(record.status)}\n\n` +
+        `Valor atual: ${valueLabel}`
+      );
+
+      if (!confirmClear) {
+        searchMessage.textContent = 'Operação cancelada.';
+        return;
+      }
+
+      record[field] = '';
+      saveRecords();
+      renderTable();
+      searchMessage.textContent = `Campo ${fieldLabels[field]} da O.S ${record.os}${wasArchived ? ' (restaurada do arquivo)' : ` (linha ${recordIndex + 1})`} foi limpo.`;
+    });
+
+    app.classList.add('table-hidden');
+    if (toggleTableButton) toggleTableButton.textContent = 'Mostrar tabela';
+    dateInput.value = todayISO();
+
+    app.inert = true;
+    initData().then((ready) => {
+      if (!ready) {
+        app.before(syncStatus);
+        showSyncStatus('Não foi possível carregar os dados. Recarregue a página para tentar novamente.');
+        return;
+      }
+      app.inert = false;
+      promptTecnicoIfNeeded();
+      updateRecordStats();
+      updateSheetFooter(document);
+      renderTable();
+      osInput.focus();
+      runDailyBackup();
+    });
+  </script>
+</body>
+</html>

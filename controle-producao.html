@@ -330,6 +330,20 @@
       font-weight: 700;
     }
 
+    #duplicateWarning,
+    #syncStatus {
+      white-space: pre-line;
+      overflow-wrap: anywhere;
+    }
+
+    #duplicateWarning {
+      min-height: 0;
+    }
+
+    #duplicateWarning:not(:empty) {
+      margin-top: 5px;
+    }
+
     .note {
       margin: 10px 0 0;
       color: var(--muted);
@@ -905,6 +919,7 @@
             <button type="button" id="optionsToggle" aria-expanded="false" aria-controls="optionsMenu" aria-haspopup="menu">Opções</button>
             <div class="options-submenu" id="optionsMenu" role="menu" hidden>
               <button type="button" id="clearForm" role="menuitem">Limpar campos</button>
+              <button type="button" id="changeTecnico" role="menuitem">Informar técnico</button>
               <button type="button" id="clearSpecificField" role="menuitem">Limpar campo específico</button>
               <button type="button" id="printTable" role="menuitem">Imprimir</button>
               <button type="button" id="newTable" role="menuitem">Criar nova tabela</button>
@@ -936,7 +951,8 @@
         <form id="entryForm">
           <div>
             <label for="os">Número da O.S</label>
-            <input id="os" name="os" autocomplete="off" required>
+            <input id="os" name="os" autocomplete="off" aria-describedby="duplicateWarning" required>
+            <p class="message" id="duplicateWarning" aria-live="polite"></p>
           </div>
 
           <div>
@@ -1025,7 +1041,6 @@
           </div>
         </div>
 
-        <p class="message warning" id="duplicateWarning" aria-live="polite"></p>
         <div class="data-box" aria-label="Dados">
           <p class="stats" id="recordStats">0 O.S cadastradas.</p>
         </div>
@@ -1091,6 +1106,7 @@
     const MAX_ROWS = 30;
     const STORAGE_KEY = 'controle-producao-registros';
     const TECNICO_KEY = 'controle-producao-tecnico';
+    const TECNICO_CONFIRMED_KEY = 'controle-producao-tecnico-confirmado';
     const BACKUP_KEY = 'controle-producao-last-pdf-backup';
     const BACKUP_API = '/api/backup-pdf';
     const DATA_API = '/api/data';
@@ -1102,6 +1118,7 @@
     const submitButton = form.querySelector('button[type="submit"]');
     const tableBody = document.getElementById('tableBody');
     const clearFormButton = document.getElementById('clearForm');
+    const changeTecnicoButton = document.getElementById('changeTecnico');
     const clearSpecificFieldButton = document.getElementById('clearSpecificField');
     const printButton = document.getElementById('printTable');
     const newTableButton = document.getElementById('newTable');
@@ -1161,6 +1178,9 @@
     let valorSelection = null;
     let pendingSubmit = false;
     let canArchiveMonthlyReports = false;
+    let osLookup = null;
+    let osLookupTimer = null;
+    let checkingRegistration = false;
 
     function todayISO() {
       const today = new Date();
@@ -1244,7 +1264,9 @@
           location.replace('/');
           return null;
         }
-        return response.ok ? await response.json() : null;
+        if (!response.ok) return null;
+        const data = await response.json();
+        return Array.isArray(data?.records) ? data : null;
       } catch {
         return null;
       }
@@ -1261,7 +1283,7 @@
       localStorage.setItem(PENDING_KEY, JSON.stringify({ revision, data: pendingSave }));
     }
 
-    function saveToFile() {
+    function saveToFile(registration = null) {
       clearTimeout(saveFileTimer);
       saveQueue = saveQueue.then(async () => {
         const data = pendingSave;
@@ -1285,7 +1307,15 @@
           }
           if (response.status === 409) {
             conflict = true;
-            showSyncStatus('Outra sessão alterou os dados. Baixe suas alterações pendentes antes de recarregar.');
+            const message = 'Outra sessão alterou os dados. Baixe suas alterações pendentes antes de recarregar.';
+            showSyncStatus(message);
+            if (registration) {
+              const latest = await loadFromFile();
+              const matches = latest ? getFileOSEntries(latest, registration.os, registration.status) : [];
+              if (matches.length) {
+                showSyncStatus(`A O.S. ${registration.os} foi cadastrada em outra sessão.\n${describeDuplicateEntries(matches)}\n${message}`);
+              }
+            }
             return false;
           }
           if (!response.ok) throw new Error('Falha na sincronização');
@@ -1360,6 +1390,7 @@
     }
 
     function saveRecords() {
+      clearOSLookup();
       saveRecordsToStorage();
       updateRecordStats();
       queueDailyBackup();
@@ -1372,8 +1403,21 @@
 
     function saveTecnico(value) {
       saveTecnicoToStorage(value);
+      localStorage.setItem(TECNICO_CONFIRMED_KEY, 'true');
       updateSheetFooter(document);
-      queueSaveToFile();
+      if (pendingSave) queueSaveToFile();
+    }
+
+    function getArchivedOnly(fileData) {
+      const activeKeys = new Set(fileData.records.map(archiveKey));
+      return (fileData.archivedRecords || []).filter((record) => !activeKeys.has(archiveKey(record)));
+    }
+
+    function setRecordsFromFile(fileData) {
+      revision = fileData.revision ?? revision;
+      records = fileData.records;
+      archivedRecords = getArchivedOnly(fileData);
+      saveRecordsToStorage();
     }
 
     async function initData() {
@@ -1393,14 +1437,9 @@
         pendingSave = savedPending.data;
         records = structuredClone(pendingSave.records);
         archivedRecords = structuredClone(pendingSave.archivedRecords);
-        saveTecnicoToStorage(pendingSave.tecnico);
         await saveToFile();
-      } else if (Array.isArray(fileData?.records) && (revision !== null || fileData.records.length > 0)) {
-        records = fileData.records;
-        const activeKeys = new Set(records.map(archiveKey));
-        archivedRecords = (fileData.archivedRecords || []).filter((record) => !activeKeys.has(archiveKey(record)));
-        saveRecordsToStorage();
-        saveTecnicoToStorage(fileData.tecnico);
+      } else if (fileData && !(location.port === '3847' && revision === 'empty')) {
+        setRecordsFromFile(fileData);
       } else {
         records = loadRecordsFromStorage();
         archivedRecords = fileData?.archivedRecords || [];
@@ -1420,20 +1459,27 @@
 
     function clearTecnico() {
       localStorage.removeItem(TECNICO_KEY);
+      localStorage.removeItem(TECNICO_CONFIRMED_KEY);
+      changeTecnicoButton.textContent = 'Informar técnico';
       updateSheetFooter(document);
       queueSaveToFile();
     }
 
-    function promptTecnicoIfNeeded() {
-      if (loadTecnico()) return true;
+    function promptTecnicoIfNeeded(force = false) {
+      const currentName = loadTecnico();
+      if (currentName && localStorage.getItem(TECNICO_CONFIRMED_KEY) && !force) {
+        changeTecnicoButton.textContent = `Alterar técnico (${currentName})`;
+        return true;
+      }
 
-      const name = prompt('Nome do técnico (rodapé da ficha):');
+      const name = prompt('Nome do técnico que está cadastrando as O.S.:', currentName);
       if (!name || !String(name).trim()) {
-        searchMessage.textContent = 'Informe o nome do técnico para continuar.';
+        if (!force) searchMessage.textContent = 'Informe o nome do técnico para continuar.';
         return false;
       }
 
       saveTecnico(name);
+      changeTecnicoButton.textContent = `Alterar técnico (${loadTecnico()})`;
       return true;
     }
 
@@ -1519,8 +1565,8 @@
       valorSelection = null;
       pendingSubmit = false;
       dateInput.value = todayISO();
-      duplicateWarning.textContent = '';
-      osInput.classList.remove('is-invalid');
+      clearOSLookup();
+      updateDuplicateWarning();
       submitButton.textContent = 'Inserir na tabela';
       osInput.focus();
     }
@@ -1839,21 +1885,25 @@
       return statusEntry ? statusEntry.index : -3;
     }
 
-    function getAllOSEntries(value, status = null) {
+    function getAllOSEntries(value, status = null, active = records, archived = archivedRecords) {
       const os = normalizeOS(value);
       if (!os) return [];
       const entries = [];
-      records.forEach((record, index) => {
+      active.forEach((record, index) => {
         if (normalizeOS(record.os) === os && (status === null || String(record.status || 'orcamento') === String(status))) {
           entries.push({ index, record, source: 'active' });
         }
       });
-      archivedRecords.forEach((record, index) => {
+      archived.forEach((record, index) => {
         if (normalizeOS(record.os) === os && (status === null || String(record.status || 'orcamento') === String(status))) {
           entries.push({ index, record, source: 'archived' });
         }
       });
       return entries;
+    }
+
+    function getFileOSEntries(fileData, os, status = null) {
+      return getAllOSEntries(os, status, fileData.records, getArchivedOnly(fileData));
     }
 
     function chooseOSEntry(value) {
@@ -1905,38 +1955,61 @@
       return statusEntry || { code: -3 };
     }
 
-    function findDuplicateOSIndex(value, status, ignoredIndex = -1) {
-      const os = normalizeOS(value);
-      const selectedStatus = String(status || 'orcamento');
-      if (!os) return -1;
-      return records.findIndex((record, index) => (
-        index !== ignoredIndex
-        && normalizeOS(record.os) === os
-        && String(record.status || 'orcamento') === selectedStatus
-      ));
+    function clearOSLookup() {
+      clearTimeout(osLookupTimer);
+      osLookup = null;
     }
 
-    function hasArchivedDuplicate(value, status) {
-      const os = normalizeOS(value);
-      const selectedStatus = String(status || 'orcamento');
-      if (!os || editIndex >= 0) return false;
-      return archivedRecords.some((record) => (
-        normalizeOS(record.os) === os
-        && String(record.status || 'orcamento') === selectedStatus
-      ));
+    async function checkSharedOS(os) {
+      const lookup = { os };
+      osLookup = lookup;
+      const fileData = await loadFromFile();
+      if (fileData && osLookup === lookup) {
+        lookup.revision = fileData.revision;
+        lookup.matches = getFileOSEntries(fileData, os);
+        updateDuplicateWarning();
+      }
+      return fileData;
+    }
+
+    function queueOSLookup(delay) {
+      const os = normalizeOS(osInput.value);
+      if (!os || editIndex >= 0 || checkingRegistration) return;
+      clearTimeout(osLookupTimer);
+      osLookupTimer = setTimeout(() => checkSharedOS(os), delay);
+    }
+
+    function describeDuplicateEntries(entries) {
+      return entries.map(({ index, record, source }) => {
+        const details = [
+          record.tecnico ? `Técnico ${record.tecnico}` : 'Técnico não identificado',
+          getStatusLabel(record.status),
+          record.data && `Data do orçamento ${formatDate(record.data)}`,
+          record.dataEntrada && `Entrada ${formatDate(record.dataEntrada)}`,
+          record.modelo && `Modelo ${record.modelo}`,
+          record.serie && `Série ${record.serie}`,
+          source === 'archived' ? 'Histórico' : `Tabela atual, linha ${index + 1}`
+        ];
+        return details.filter(Boolean).join(' · ');
+      }).join('\n');
     }
 
     function updateDuplicateWarning() {
       const typedOS = normalizeOS(osInput.value);
-      const duplicateIndex = findDuplicateOSIndex(typedOS, getSelectedStatus(), editIndex);
-      const archivedDuplicate = hasArchivedDuplicate(typedOS, getSelectedStatus());
-      const hasDuplicate = duplicateIndex >= 0 || archivedDuplicate;
-      duplicateWarning.textContent = duplicateIndex >= 0
-        ? `Atenção: a O.S ${typedOS} já está cadastrada com este mesmo tipo na linha ${duplicateIndex + 1}.`
-        : archivedDuplicate
-          ? `Atenção: a O.S ${typedOS} já foi cadastrada com este mesmo tipo em mês anterior.`
-          : '';
+      const useShared = editIndex < 0 && osLookup?.os === typedOS && osLookup.matches
+        && (!pendingSave || osLookup.revision !== revision);
+      const entries = useShared ? osLookup.matches : getAllOSEntries(typedOS).filter(({ source, index }) => (
+        editIndex < 0 || (source === 'active' && index !== editIndex)
+      ));
+      const status = getSelectedStatus();
+      const hasDuplicate = entries.some(({ record }) => (record.status || 'orcamento') === status);
+      const title = hasDuplicate
+        ? `A O.S. ${typedOS} já está cadastrada com este tipo.`
+        : `A O.S. ${typedOS} já tem cadastro em outro tipo.`;
+      duplicateWarning.textContent = entries.length ? `${title}\n${describeDuplicateEntries(entries)}` : '';
+      duplicateWarning.classList.toggle('warning', hasDuplicate);
       osInput.classList.toggle('is-invalid', hasDuplicate);
+      osInput.setAttribute('aria-invalid', String(hasDuplicate));
       return hasDuplicate;
     }
 
@@ -2023,7 +2096,7 @@
 
       if (hasDuplicate) {
         if (showAlert) {
-          alert('Esta O.S já está cadastrada com este mesmo tipo. Digite outro número ou selecione outro tipo antes de continuar.');
+          alert(`${duplicateWarning.textContent}\n\nDigite outro número ou selecione outro tipo antes de continuar.`);
         }
         osInput.focus();
         osInput.select();
@@ -2222,8 +2295,8 @@
       valorSelection = record.status === 'aprovada' ? (Number(record.valor) || 0) : null;
 
       submitButton.textContent = 'Salvar edição';
-      duplicateWarning.textContent = '';
-      osInput.classList.remove('is-invalid');
+      clearOSLookup();
+      updateDuplicateWarning();
       renderTable();
       osInput.focus();
       searchMessage.textContent = `Editando O.S ${record.os} (${getStatusLabel(record.status)}), linha ${index + 1}.`;
@@ -2337,12 +2410,20 @@
       updateSheetFooter(document, pageNumber, pageCount, records[pageStart]?.data || todayISO());
     }
 
-    form.addEventListener('submit', (event) => {
+    form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      if (checkingRegistration) return;
 
-      const formData = new FormData(form);
+      let formData = new FormData(form);
       const os = normalizeOS(formData.get('os'));
       const status = String(formData.get('status') || 'orcamento');
+      const registering = editIndex < 0;
+
+      if (blockDuplicateOSAdvance()) {
+        pendingSubmit = false;
+        queueOSLookup(0);
+        return;
+      }
 
       if (status === 'orcamento' && !pendingSubmit && entryDateSelection === null) {
         pendingSubmit = true;
@@ -2364,10 +2445,36 @@
 
       pendingSubmit = false;
 
-      if (findDuplicateOSIndex(os, status, editIndex) >= 0 || hasArchivedDuplicate(os, status)) {
-        alert(`A O.S ${os} já está cadastrada com este mesmo tipo. Verifique antes de inserir novamente.`);
-        updateDuplicateWarning();
-        return;
+      if (registering) {
+        if (!promptTecnicoIfNeeded()) return;
+
+        checkingRegistration = true;
+        submitButton.disabled = true;
+        clearTimeout(osLookupTimer);
+        let fileData;
+        try {
+          if (pendingSave) await saveToFile();
+          fileData = await checkSharedOS(os);
+        } finally {
+          checkingRegistration = false;
+          submitButton.disabled = false;
+        }
+
+        if (editIndex >= 0 || normalizeOS(osInput.value) !== os || getSelectedStatus() !== status) return;
+        if (!fileData) {
+          duplicateWarning.textContent = 'Não foi possível consultar as tabelas. Tente inserir a O.S. novamente.';
+          duplicateWarning.classList.add('warning');
+          return;
+        }
+        if (!pendingSave && fileData.revision !== revision) {
+          setRecordsFromFile(fileData);
+          foundIndex = -1;
+          clearSearchResult();
+          updateRecordStats();
+          renderTable();
+        }
+        if (blockDuplicateOSAdvance() || conflict || !form.reportValidity()) return;
+        formData = new FormData(form);
       }
 
       const record = {
@@ -2377,6 +2484,7 @@
         dataEntrada: status === 'orcamento' ? (entryDateSelection || '') : '',
         data: String(formData.get('data') || ''),
         status,
+        tecnico: registering ? loadTecnico() : (records[editIndex].tecnico || ''),
         taxa: status === 'orcamento' ? (taxaSelection || 'isento') : null,
         valor: status === 'aprovada' ? (valorSelection || 0) : (taxaSelection === 'outros' ? (outrosValor || 0) : 0)
       };
@@ -2394,9 +2502,11 @@
       closePreviousMonthsIfNeeded();
       renderTable();
       resetForm();
+      if (registering) saveToFile({ os, status });
     });
 
     clearFormButton.addEventListener('click', resetForm);
+    changeTecnicoButton.addEventListener('click', () => promptTecnicoIfNeeded(true));
 
     function setOptionsMenuOpen(isOpen) {
       optionsMenuWrap.classList.toggle('is-open', isOpen);
@@ -2434,7 +2544,11 @@
         const end = event.target.selectionEnd;
         event.target.value = event.target.value.toUpperCase();
         event.target.setSelectionRange(start, end);
-        if (fieldId === 'os') updateDuplicateWarning();
+        if (fieldId === 'os') {
+          if (osLookup?.os !== normalizeOS(event.target.value)) clearOSLookup();
+          updateDuplicateWarning();
+          queueOSLookup(400);
+        }
       });
     });
 
@@ -2445,9 +2559,10 @@
     });
 
     osInput.addEventListener('blur', () => {
-      if (findDuplicateOSIndex(osInput.value, getSelectedStatus(), editIndex) >= 0) {
+      if (findOSIndex(osInput.value, getSelectedStatus(), editIndex) >= 0) {
         setTimeout(() => blockDuplicateOSAdvance(false), 0);
       }
+      if (osLookup?.os !== normalizeOS(osInput.value)) queueOSLookup(0);
     });
 
     document.getElementById('modelo').addEventListener('focus', () => {

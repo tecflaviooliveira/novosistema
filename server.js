@@ -1,6 +1,7 @@
 const express = require('express');
 const { snapshot } = require('./lib/production.cjs');
 const { backupListing, pdfFilename } = require('./lib/backups.cjs');
+const { createHash } = require('node:crypto');
 const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
@@ -40,45 +41,55 @@ function ensureDir(dirPath) {
   }
 }
 
-function readJsonFile(filePath) {
-  return JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
+function dataRevision(contents) {
+  return createHash('sha256').update(contents).digest('hex');
+}
+
+function readDataEntry() {
+  if (!fs.existsSync(DATA_FILE)) return { data: {}, revision: 'empty' };
+  const contents = fs.readFileSync(DATA_FILE, 'utf8');
+  return { data: JSON.parse(contents.replace(/^\uFEFF/, '')), revision: dataRevision(contents) };
 }
 
 // ── Persistência em arquivo local ────────────────────────────────────────────
 
 app.get('/api/data', (req, res) => {
   try {
-    if (!fs.existsSync(DATA_FILE)) {
-      return res.json({ records: [], archivedRecords: [], monthlyReports: [], tecnico: '' });
-    }
-    res.json(snapshot(readJsonFile(DATA_FILE)));
+    const { data, revision } = readDataEntry();
+    res.set('Cache-Control', 'no-store').json({ ...snapshot(data), revision });
   } catch (error) {
     res.status(500).json({ error: 'Falha ao ler os dados: ' + error.message });
   }
 });
 
 app.post('/api/data', (req, res) => {
-  const { records, archivedRecords, tecnico } = req.body || {};
+  const { records, archivedRecords, tecnico, writeId } = req.body || {};
 
   if (!Array.isArray(records)) {
     return res.status(400).json({ error: 'O campo "records" deve ser um array.' });
   }
 
   try {
-    let existing = {};
-    if (fs.existsSync(DATA_FILE)) {
-      try {
-        existing = readJsonFile(DATA_FILE);
-      } catch {
-        existing = {};
-      }
+    const { data: existing, revision } = readDataEntry();
+    if (typeof writeId === 'string' && writeId && writeId === existing.writeId) {
+      return res.json({ ok: true, revision });
+    }
+    const expectedRevision = req.get('If-Match');
+    if (expectedRevision && expectedRevision !== revision) {
+      return res.status(409).json({ error: 'Os dados foram alterados em outra sessão.' });
     }
 
-    const data = { ...snapshot({ records, archivedRecords, tecnico }, existing), updatedAt: new Date().toISOString() };
+    const data = {
+      ...snapshot({ records, archivedRecords, tecnico }, existing),
+      writeId,
+      updatedAt: new Date().toISOString()
+    };
+    const contents = JSON.stringify(data, null, 2);
+
     const temporaryFile = DATA_FILE + '.tmp';
-    fs.writeFileSync(temporaryFile, JSON.stringify(data, null, 2), 'utf8');
+    fs.writeFileSync(temporaryFile, contents, 'utf8');
     fs.renameSync(temporaryFile, DATA_FILE);
-    res.json({ ok: true });
+    res.json({ ok: true, revision: dataRevision(contents) });
   } catch (error) {
     res.status(500).json({ error: 'Falha ao salvar os dados: ' + error.message });
   }

@@ -343,50 +343,6 @@
       </table>
     </section>
 
-    <!-- Table -->
-    <div class="table-card">
-      <h2>Resumo por mês</h2>
-      <div class="tbl-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Mês / Ano</th>
-              <th>Total</th>
-              <th>Orçamento</th>
-              <th>Aprovada</th>
-              <th>Garantia</th>
-              <th>Acesso Remoto</th>
-              <th>Valor Total</th>
-              <th>Isentos</th>
-              <th>Mais frequente</th>
-            </tr>
-          </thead>
-          <tbody id="summaryBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="table-card">
-      <h2>Comparativo entre meses</h2>
-      <div class="tbl-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Mês / Ano</th>
-              <th>Total</th>
-              <th>Orçamento</th>
-              <th>Aprovada</th>
-              <th>Garantia</th>
-              <th>Acesso Remoto</th>
-              <th>Variação</th>
-              <th>Variação %</th>
-            </tr>
-          </thead>
-          <tbody id="comparativoBody"></tbody>
-        </table>
-      </div>
-    </div>
-
   </div><!-- /appContent -->
 </div>
 </div>
@@ -394,7 +350,6 @@
 <script>
   const STORAGE_KEY = 'controle-producao-registros';
   const DATA_API = '/api/data';
-  const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
   let allRecords = [];
@@ -1049,7 +1004,6 @@
       const remoto = Number(report.remoto || 0);
       map[report.key] = {
         key: report.key,
-        label: report.label || report.key,
         orcamento,
         aprovada,
         garantia,
@@ -1069,7 +1023,7 @@
       if (!reportMatchesFilter({ key, year: ym.year, month: ym.month + 1 }, yearFilter, monthFilter)) return;
       if (!map[key]) {
         map[key] = {
-          key, label: `${MESES[ym.month]}/${ym.year}`,
+          key,
           orcamento:0, aprovada:0, garantia:0, remoto:0, modelos:{},
           taxaTotal:0, aprovadaTotal:0, isentos:0, comTaxa:0
         };
@@ -1183,77 +1137,6 @@
         modelsBody.append(row);
       });
     }
-
-    // ── Summary table ──────────────────────────────────────────────────
-    const tbody = document.getElementById('summaryBody');
-    tbody.innerHTML = '';
-    monthly.forEach(m => {
-      const t = m.orcamento + m.aprovada + m.garantia + m.remoto;
-      const top = Object.entries(m.modelos).sort((a,b)=>b[1]-a[1])[0];
-      const mesValor = m.taxaTotal + m.aprovadaTotal;
-      tbody.innerHTML += `
-        <tr>
-          <td>${m.label}</td>
-          <td><strong>${t}</strong></td>
-          <td>${m.orcamento} <span style="color:var(--muted);font-size:11px">(${pct(m.orcamento,t)})</span></td>
-          <td>${m.aprovada}  <span style="color:var(--muted);font-size:11px">(${pct(m.aprovada,t)})</span></td>
-          <td>${m.garantia}  <span style="color:var(--muted);font-size:11px">(${pct(m.garantia,t)})</span></td>
-          <td>${m.remoto}    <span style="color:var(--muted);font-size:11px">(${pct(m.remoto,t)})</span></td>
-          <td><strong>${mesValor > 0 ? formatCurrency(mesValor) : '—'}</strong></td>
-          <td>${m.isentos > 0 ? m.isentos + ' isento' + (m.isentos > 1 ? 's' : '') : '—'}</td>
-          <td><span style="font-size:13px;color:var(--text)">${top ? top[0] + ' ('+top[1]+')' : '—'}</span></td>
-        </tr>
-      `;
-    });
-
-    // Totals row
-    tbody.innerHTML += `
-      <tr style="border-top:2px solid var(--border)">
-        <td><strong>TOTAL</strong></td>
-        <td><strong>${tot}</strong></td>
-        <td><strong>${orc}</strong></td>
-        <td><strong>${apr}</strong></td>
-        <td><strong>${gar}</strong></td>
-        <td><strong>${rem}</strong></td>
-        <td><strong>${valorTotal > 0 ? formatCurrency(valorTotal) : '—'}</strong></td>
-        <td><strong>${isentosTotal > 0 ? isentosTotal : '—'}</strong></td>
-        <td style="color:var(--muted)">—</td>
-      </tr>
-    `;
-
-    // ── Comparativo entre meses (sempre por todos os meses do ano filtrado) ─
-    const compMonthly = buildMonthlyData(getFiltered(yearFilter, 'all'), yearFilter, 'all');
-    const compLabels  = compMonthly.map(m => m.label);
-    const compTotais  = compMonthly.map(m => m.orcamento + m.aprovada + m.garantia + m.remoto);
-
-    const compBody = document.getElementById('comparativoBody');
-    compBody.innerHTML = '';
-    compMonthly.forEach((m, i) => {
-      const t = m.orcamento + m.aprovada + m.garantia + m.remoto;
-      const prev = i > 0 ? compTotais[i-1] : null;
-      let delta = '—', deltaPct = '—', color = 'var(--muted)';
-      if (prev !== null) {
-        const d = t - prev;
-        delta = (d > 0 ? '+' : '') + d;
-        deltaPct = prev === 0 ? '—' : (d > 0 ? '+' : '') + Math.round(d / prev * 100) + '%';
-        color = d > 0 ? 'var(--orcamento)' : (d < 0 ? 'var(--garantia)' : 'var(--muted)');
-      }
-      compBody.innerHTML += `
-        <tr>
-          <td>${m.label}</td>
-          <td><strong>${t}</strong></td>
-          <td>${m.orcamento}</td>
-          <td>${m.aprovada}</td>
-          <td>${m.garantia}</td>
-          <td>${m.remoto}</td>
-          <td style="color:${color};font-weight:700">${delta}</td>
-          <td style="color:${color};font-weight:700">${deltaPct}</td>
-        </tr>
-      `;
-    });
-    if (!compMonthly.length) {
-      compBody.innerHTML = `<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:18px">Sem dados para comparar.</td></tr>`;
-    }
   }
 
   function prepareReportPrint() {
@@ -1262,7 +1145,7 @@
     output.replaceChildren();
     const hasData = document.getElementById('appContent').style.display === 'block';
     const groups = hasData
-      ? [[document.querySelector('.summary-card'), document.querySelector('[aria-labelledby="modelsHeading"]')], [document.getElementById('summaryBody').closest('.table-card'), document.getElementById('comparativoBody').closest('.table-card')]]
+      ? [[document.querySelector('.summary-card'), document.querySelector('[aria-labelledby="modelsHeading"]')]]
       : [[document.getElementById('emptyState')]];
     groups.forEach((cards, index) => {
       const page = document.createElement('section'); page.className = 'report-print-sheet';
